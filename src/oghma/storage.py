@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import sqlite3
@@ -55,6 +56,7 @@ class Storage:
     VECTOR_K_MULTIPLIER = 4
     VECTOR_K_MIN = 25
     RRF_K_DEFAULT = 60
+    _vec_load_warned = False
 
     def __init__(
         self,
@@ -105,10 +107,9 @@ class Storage:
             sqlite_vec.load(conn)
         except Exception:
             self._vector_search_enabled = False
-            logger.warning(
-                "sqlite-vec extension failed to load; vector search disabled",
-                exc_info=True,
-            )
+            if not self._vec_load_warned:
+                logger.debug("sqlite-vec extension failed to load; vector search disabled")
+                Storage._vec_load_warned = True
 
     def _fallback_keyword_search(
         self,
@@ -145,6 +146,46 @@ class Storage:
         if column_name not in columns:
             cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {definition}")
 
+    def _compute_content_hash(self, content: str, category: str, source_file: str) -> str:
+        hash_input = f"{content}{category}{source_file}"
+        return hashlib.sha256(hash_input.encode()).hexdigest()
+
+    def _migrate_dedup(self, cursor: sqlite3.Cursor) -> None:
+        cursor.execute("DROP INDEX IF EXISTS idx_memories_dedup")
+
+        cursor.execute("PRAGMA table_info(memories)")
+        columns = {row[1] for row in cursor.fetchall()}
+
+        if "content_hash" not in columns:
+            cursor.execute("ALTER TABLE memories ADD COLUMN content_hash TEXT")
+
+        cursor.execute("SELECT id, content, category, source_file, content_hash FROM memories")
+        rows = cursor.fetchall()
+
+        needs_backfill = any(row[4] is None for row in rows)
+        if needs_backfill:
+            for row in rows:
+                memory_id, content, category, source_file, content_hash = row
+                if content_hash is None:
+                    computed_hash = self._compute_content_hash(content, category, source_file)
+                    cursor.execute(
+                        "UPDATE memories SET content_hash = ? WHERE id = ?",
+                        (computed_hash, memory_id),
+                    )
+
+        cursor.execute("""
+            DELETE FROM memories
+            WHERE id NOT IN (
+                SELECT MIN(id) FROM memories
+                WHERE content_hash IS NOT NULL
+                GROUP BY content_hash, source_file
+            )
+        """)
+
+        cursor.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_memories_dedup ON memories(content_hash, source_file)
+        """)
+
     def _serialize_embedding(self, embedding: list[float]) -> Any:
         if sqlite_vec and hasattr(sqlite_vec, "serialize_float32"):
             return sqlite_vec.serialize_float32(embedding)
@@ -172,6 +213,7 @@ class Storage:
                 )
             """)
             self._ensure_column(cursor, "memories", "has_embedding", "INTEGER DEFAULT 0")
+            self._ensure_column(cursor, "memories", "content_hash", "TEXT")
 
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_memories_category ON memories(category)
@@ -188,6 +230,8 @@ class Storage:
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_memories_status ON memories(status)
             """)
+
+            self._migrate_dedup(cursor)
 
             cursor.execute("""
                 CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
@@ -281,17 +325,18 @@ class Storage:
         confidence: float = 1.0,
         metadata: dict[str, Any] | None = None,
         embedding: list[float] | None = None,
-    ) -> int:
+    ) -> int | None:
         with self._get_connection() as conn:
             cursor = conn.cursor()
+            content_hash = self._compute_content_hash(content, category, source_file)
             metadata_json = json.dumps(metadata) if metadata else None
 
             cursor.execute(
                 """
-                INSERT INTO memories
+                INSERT OR IGNORE INTO memories
                 (content, category, source_tool, source_file,
-                 source_session, confidence, metadata, has_embedding)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                 source_session, confidence, metadata, has_embedding, content_hash)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     content,
@@ -302,9 +347,13 @@ class Storage:
                     confidence,
                     metadata_json,
                     1 if embedding is not None and self._vector_search_enabled else 0,
+                    content_hash,
                 ),
             )
             memory_id = cursor.lastrowid or 0
+
+            if memory_id == 0:
+                return None
 
             if embedding is not None and self._vector_search_enabled:
                 cursor.execute(

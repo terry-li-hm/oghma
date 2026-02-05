@@ -339,3 +339,63 @@ def test_get_recent_extraction_logs(storage):
 
     logs_all = storage.get_recent_extraction_logs(limit=10)
     assert len(logs_all) == 3
+
+
+def test_dedup_duplicate_memory_returns_none(storage):
+    memory_id = storage.add_memory(
+        content="Duplicate memory content",
+        category="learning",
+        source_tool="claude_code",
+        source_file="/path/to/file.jsonl",
+    )
+    assert memory_id is not None
+
+    duplicate_id = storage.add_memory(
+        content="Duplicate memory content",
+        category="learning",
+        source_tool="claude_code",
+        source_file="/path/to/file.jsonl",
+    )
+    assert duplicate_id is None
+
+    assert storage.get_memory_count() == 1
+
+
+def test_dedup_different_source_files_allowed(storage):
+    memory_id_1 = storage.add_memory(
+        content="Same content different file",
+        category="learning",
+        source_tool="claude_code",
+        source_file="/path/to/file1.jsonl",
+    )
+    assert memory_id_1 is not None
+
+    memory_id_2 = storage.add_memory(
+        content="Same content different file",
+        category="learning",
+        source_tool="claude_code",
+        source_file="/path/to/file2.jsonl",
+    )
+    assert memory_id_2 is not None
+
+    assert storage.get_memory_count() == 2
+
+
+def test_dedup_different_categories_allowed(storage):
+    memory_id_1 = storage.add_memory(
+        content="Same content different category",
+        category="learning",
+        source_tool="claude_code",
+        source_file="/path/to/file.jsonl",
+    )
+    assert memory_id_1 is not None
+
+    memory_id_2 = storage.add_memory(
+        content="Same content different category",
+        category="workflow",
+        source_tool="claude_code",
+        source_file="/path/to/file.jsonl",
+    )
+    assert memory_id_2 is not None
+
+    assert storage.get_memory_count() == 2

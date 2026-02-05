@@ -71,3 +71,48 @@ def test_migration_updates_embeddings(storage: Storage) -> None:
     done, total = storage.get_embedding_progress()
     assert done == 2
     assert total == 2
+
+
+def test_dedup_migration_removes_duplicates() -> None:
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+        db_path = f.name
+
+    storage = Storage(db_path=db_path)
+
+    with storage._get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO memories
+            (content, category, source_tool, source_file, content_hash)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            ("Duplicate memory", "learning", "claude_code", "/tmp/file.jsonl", None),
+        )
+        cursor.execute(
+            """
+            INSERT INTO memories
+            (content, category, source_tool, source_file, content_hash)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            ("Duplicate memory", "learning", "claude_code", "/tmp/file.jsonl", None),
+        )
+        cursor.execute(
+            """
+            INSERT INTO memories
+            (content, category, source_tool, source_file, content_hash)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            ("Unique memory", "workflow", "codex", "/tmp/other.jsonl", None),
+        )
+
+    assert storage.get_memory_count() == 3
+
+    storage2 = Storage(db_path=db_path)
+
+    assert storage2.get_memory_count() == 2
+
+    Path(db_path).unlink(missing_ok=True)
