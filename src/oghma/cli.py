@@ -1,3 +1,6 @@
+import os
+import signal
+import time
 from pathlib import Path
 
 import click
@@ -10,6 +13,7 @@ from oghma.config import (
     load_config,
     validate_config,
 )
+from oghma.daemon import Daemon, get_daemon_pid
 from oghma.storage import Storage
 
 console = Console()
@@ -44,22 +48,46 @@ def status() -> None:
         config_path = get_config_path()
         config = load_config()
         db_path = config["storage"]["db_path"]
+        pid_file = config["daemon"]["pid_file"]
 
         table = Table(title="Oghma Status", show_header=True, header_style="bold magenta")
         table.add_column("Property", style="cyan")
         table.add_column("Value", style="green")
 
         table.add_row("Config Path", str(config_path))
+
+        pid = get_daemon_pid(pid_file)
+        if pid:
+            table.add_row("Daemon Status", f"[green]Running (PID: {pid})[/green]")
+        else:
+            table.add_row("Daemon Status", "[red]Stopped[/red]")
+
         table.add_row("Database Path", db_path)
 
         if Path(db_path).exists():
             storage = Storage(db_path, config)
             memory_count = storage.get_memory_count()
             table.add_row("Memory Count", str(memory_count))
+
+            logs = storage.get_recent_extraction_logs(limit=1)
+            if logs:
+                last_extraction = logs[0]["created_at"]
+                table.add_row("Last Extraction", last_extraction)
+            else:
+                table.add_row("Last Extraction", "Never")
+
             table.add_row("Database Status", "[green]Exists[/green]")
+
+            from oghma.watcher import Watcher
+
+            watcher = Watcher(config, storage)
+            watched_files = watcher.discover_files()
+            table.add_row("Watched Files", str(len(watched_files)))
         else:
             table.add_row("Memory Count", "0")
+            table.add_row("Last Extraction", "Never")
             table.add_row("Database Status", "[yellow]Not created yet[/yellow]")
+            table.add_row("Watched Files", "0")
 
         console.print(table)
 
@@ -73,6 +101,123 @@ def status() -> None:
         console.print("[red]Config not found. Run 'oghma init' first.[/red]")
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
+
+
+@cli.command()
+@click.option("--foreground", "-f", is_flag=True, help="Run in foreground (don't daemonize)")
+def start(foreground: bool) -> None:
+    try:
+        config = load_config()
+        pid_file = config["daemon"]["pid_file"]
+
+        pid = get_daemon_pid(pid_file)
+        if pid:
+            console.print(f"[red]Daemon already running (PID: {pid})[/red]")
+            console.print("Use 'oghma stop' to stop it first.")
+            raise SystemExit(1)
+
+        console.print("[blue]Starting Oghma daemon...[/blue]")
+
+        if not foreground:
+            try:
+                pid = os.fork()
+                if pid > 0:
+                    console.print(f"[green]Daemon started in background (PID: {pid})[/green]")
+                    return
+            except OSError as e:
+                console.print(f"[yellow]Fork failed: {e}. Running in foreground.[/yellow]")
+
+        daemon = Daemon(config)
+        daemon.start()
+
+    except FileNotFoundError:
+        console.print("[red]Config not found. Run 'oghma init' first.[/red]")
+        raise SystemExit(1) from None
+    except Exception as e:
+        console.print(f"[red]Error starting daemon: {e}[/red]")
+        raise SystemExit(1) from None
+
+
+@cli.command()
+def stop() -> None:
+    try:
+        config = load_config()
+        pid_file = config["daemon"]["pid_file"]
+
+        pid = get_daemon_pid(pid_file)
+        if not pid:
+            console.print("[yellow]Daemon is not running[/yellow]")
+            return
+
+        console.print(f"[blue]Stopping daemon (PID: {pid})...[/blue]")
+
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            console.print("[yellow]Daemon process not found. Cleaning up PID file.[/yellow]")
+            Path(pid_file).unlink(missing_ok=True)
+            return
+
+        for _ in range(10):
+            time.sleep(0.5)
+            if not get_daemon_pid(pid_file):
+                console.print("[green]Daemon stopped successfully[/green]")
+                return
+
+        console.print("[yellow]Daemon did not stop gracefully. Sending SIGKILL...[/yellow]")
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+
+        Path(pid_file).unlink(missing_ok=True)
+        console.print("[green]Daemon force stopped[/green]")
+
+    except FileNotFoundError:
+        console.print("[red]Config not found. Run 'oghma init' first.[/red]")
+        raise SystemExit(1) from None
+    except Exception as e:
+        console.print(f"[red]Error stopping daemon: {e}[/red]")
+        raise SystemExit(1) from None
+
+
+@cli.command()
+@click.argument("query")
+@click.option("--limit", "-n", default=10, help="Max results")
+@click.option("--category", "-c", help="Filter by category")
+def search(query: str, limit: int, category: str | None) -> None:
+    try:
+        config = load_config()
+        storage = Storage(config=config)
+
+        results = storage.search_memories(query, limit=limit, category=category)
+
+        if not results:
+            console.print(f"[yellow]No memories found matching: {query}[/yellow]")
+            return
+
+        console.print(f"[cyan]Found {len(results)} memories matching: {query}[/cyan]\n")
+
+        for idx, memory in enumerate(results, 1):
+            table = Table(show_header=False, box=None, padding=(0, 0))
+            table.add_column("", style="cyan")
+            table.add_column("")
+
+            table.add_row(f"[bold]#{idx}[/bold]", f"[dim]{memory['created_at']}[/dim]")
+            table.add_row("Category", f"[green]{memory['category']}[/green]")
+            table.add_row("Source", f"{memory['source_tool']} ({Path(memory['source_file']).name})")
+            table.add_row("Confidence", f"{memory['confidence']:.0%}")
+            table.add_row("Content", memory["content"])
+
+            console.print(table)
+            console.print()
+
+    except FileNotFoundError:
+        console.print("[red]Config not found. Run 'oghma init' first.[/red]")
+        raise SystemExit(1) from None
+    except Exception as e:
+        console.print(f"[red]Error searching memories: {e}[/red]")
+        raise SystemExit(1) from None
 
 
 def main() -> None:

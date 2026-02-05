@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from typing import Any, cast
 
 from oghma.config import Config
 from oghma.parsers import Message, get_parser_for_file
@@ -20,13 +21,13 @@ class Watcher:
     def discover_files(self) -> list[Path]:
         """Find all transcript files from configured tool paths."""
         all_files: list[Path] = []
-        tools = self.config.get("tools", {})
+        tools = cast(dict[str, Any], self.config.get("tools") or {})
 
         for tool_name, tool_config in tools.items():
             if not tool_config.get("enabled", False):
                 continue
 
-            paths = tool_config.get("paths", [])
+            paths = tool_config.get("paths") or []
             for pattern in paths:
                 files = self._expand_glob_pattern(Path(pattern).expanduser(), tool_name)
                 all_files.extend(files)
@@ -91,5 +92,6 @@ class Watcher:
 
     def should_process(self, messages: list[Message]) -> bool:
         """Check if file has enough messages to process."""
-        min_messages = self.config.get("daemon", {}).get("min_messages", 6)
+        daemon_config = cast(dict[str, Any], self.config.get("daemon") or {})
+        min_messages = daemon_config.get("min_messages", 6)
         return len(messages) >= min_messages
