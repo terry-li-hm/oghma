@@ -95,6 +95,21 @@ class TestExtractor:
         with pytest.raises(ValueError, match="OPENAI_API_KEY environment variable not set"):
             Extractor(config=mock_config)
 
+    @patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"})
+    def test_extractor_openrouter_initialization(self, mock_config):
+        """Test that extractor initializes with OpenRouter for supported models."""
+        mock_config["extraction"]["model"] = "google/gemini-3-flash-preview"
+        extractor = Extractor(config=mock_config)
+        assert extractor.use_openrouter is True
+        assert extractor.model == "google/gemini-3-flash-preview"
+
+    @patch.dict("os.environ", {}, clear=True)
+    def test_extractor_openrouter_no_api_key(self, mock_config):
+        """Test that extractor raises error for OpenRouter model without API key."""
+        mock_config["extraction"]["model"] = "google/gemini-3-flash-preview"
+        with pytest.raises(ValueError, match="OPENROUTER_API_KEY environment variable not set"):
+            Extractor(config=mock_config)
+
     @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
     @patch("oghma.extractor.OpenAI")
     def test_extract_success(

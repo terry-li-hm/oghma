@@ -27,14 +27,30 @@ class Extractor:
 
     CATEGORIES = ["learning", "preference", "project_context", "gotcha", "workflow"]
 
+    # Models that require OpenRouter
+    OPENROUTER_PREFIXES = ("google/", "anthropic/", "meta-llama/", "deepseek/", "moonshotai/")
+
     def __init__(self, config: Config):
         self.config = config
-        api_key = os.environ.get("OPENAI_API_KEY")
-        if not api_key:
-            raise ValueError("OPENAI_API_KEY environment variable not set")
-        self.client = OpenAI(api_key=api_key)
         self.model = config.get("extraction", {}).get("model", "gpt-4o-mini")
         self.max_chars = config.get("extraction", {}).get("max_content_chars", 4000)
+
+        # Determine which API to use based on model name
+        if self.model.startswith(self.OPENROUTER_PREFIXES):
+            api_key = os.environ.get("OPENROUTER_API_KEY")
+            if not api_key:
+                raise ValueError("OPENROUTER_API_KEY environment variable not set")
+            self.client = OpenAI(
+                api_key=api_key,
+                base_url="https://openrouter.ai/api/v1"
+            )
+            self.use_openrouter = True
+        else:
+            api_key = os.environ.get("OPENAI_API_KEY")
+            if not api_key:
+                raise ValueError("OPENAI_API_KEY environment variable not set")
+            self.client = OpenAI(api_key=api_key)
+            self.use_openrouter = False
 
     def extract(self, messages: list[Message], source_tool: str) -> list[Memory]:
         """Extract memories from a list of messages."""
@@ -71,10 +87,10 @@ class Extractor:
         return []
 
     def _call_openai(self, prompt: str) -> str:
-        """Call OpenAI API and return the response text."""
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
+        """Call LLM API and return the response text."""
+        kwargs = {
+            "model": self.model,
+            "messages": [
                 {
                     "role": "system",
                     "content": "You are a memory extraction system. "
@@ -82,13 +98,19 @@ class Extractor:
                 },
                 {"role": "user", "content": prompt},
             ],
-            temperature=0.3,
-            max_tokens=1500,
-        )
+            "temperature": 0.3,
+            "max_tokens": 1500,
+        }
+
+        # OpenAI models support structured output, OpenRouter models don't
+        if not self.use_openrouter:
+            kwargs["response_format"] = {"type": "json_object"}
+
+        response = self.client.chat.completions.create(**kwargs)
 
         content = response.choices[0].message.content
         if not content:
-            raise ValueError("Empty response from OpenAI API")
+            raise ValueError("Empty response from LLM API")
 
         return content
 

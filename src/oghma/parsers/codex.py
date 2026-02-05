@@ -36,17 +36,37 @@ class CodexParser(BaseParser):
         return messages
 
     def _extract_role(self, data: dict) -> str | None:
-        if data.get("type") != "item":
+        msg_type = data.get("type")
+        # Support both old format (item) and new format (response_item, event_msg)
+        if msg_type not in ("item", "response_item", "event_msg"):
             return None
 
         payload = data.get("payload", {})
+
+        # New format: role directly in payload
+        if "role" in payload:
+            role = payload.get("role")
+            # Map developer/assistant to assistant, user to user
+            if role in ("developer", "assistant"):
+                return "assistant"
+            elif role == "user":
+                return "user"
+            return None
+
+        # Old format: nested in payload.item
         item = payload.get("item", {})
         return item.get("role")
 
     def _extract_content(self, data: dict) -> str:
         payload = data.get("payload", {})
-        item = payload.get("item", {})
-        content = item.get("content", "")
+
+        # New format: content directly in payload
+        if "content" in payload:
+            content = payload.get("content", "")
+        else:
+            # Old format: nested in payload.item
+            item = payload.get("item", {})
+            content = item.get("content", "")
 
         if isinstance(content, str):
             return content
@@ -57,7 +77,7 @@ class CodexParser(BaseParser):
                 if isinstance(block, dict):
                     block_type = block.get("type")
                     text = block.get("text", "")
-                    if text and block_type in ("input_text", "output_text"):
+                    if text and block_type in ("input_text", "output_text", "text"):
                         parts.append(text)
             return "\n".join(parts)
 

@@ -41,19 +41,37 @@ class ExtractionLogRecord(TypedDict):
 
 
 class Storage:
-    def __init__(self, db_path: str | None = None, config: Config | None = None):
+    def __init__(
+        self,
+        db_path: str | None = None,
+        config: Config | None = None,
+        read_only: bool = False,
+    ):
         self.db_path = db_path or get_db_path(config)
-        self._init_db()
+        self.read_only = read_only
+
+        if self.read_only:
+            db_file = Path(self.db_path)
+            if not db_file.exists():
+                raise FileNotFoundError(f"Database not found: {self.db_path}")
+            self._connection_target = f"file:{db_file.resolve()}?mode=ro"
+            self._use_uri = True
+        else:
+            self._connection_target = self.db_path
+            self._use_uri = False
+            self._init_db()
 
     @contextmanager
     def _get_connection(self):
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self._connection_target, uri=self._use_uri)
         conn.row_factory = sqlite3.Row
         try:
             yield conn
-            conn.commit()
+            if not self.read_only:
+                conn.commit()
         except Exception:
-            conn.rollback()
+            if not self.read_only:
+                conn.rollback()
             raise
         finally:
             conn.close()
