@@ -1,0 +1,14 @@
+README.md
+pyproject.toml
+src/oghma/__init__.py
+src/oghma/cli.py
+src/oghma/config.py
+src/oghma/storage.py
+src/oghma.egg-info/PKG-INFO
+src/oghma.egg-info/SOURCES.txt
+src/oghma.egg-info/dependency_links.txt
+src/oghma.egg-info/entry_points.txt
+src/oghma.egg-info/requires.txt
+src/oghma.egg-info/top_level.txt
+tests/test_config.py
+tests/test_storage.py
