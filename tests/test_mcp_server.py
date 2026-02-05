@@ -5,6 +5,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
+pytest.importorskip("mcp.server.fastmcp")
+
 from oghma import mcp_server
 from oghma.config import Config
 from oghma.storage import Storage
@@ -107,6 +109,14 @@ def test_oghma_search_rejects_invalid_limit(monkeypatch: pytest.MonkeyPatch) -> 
 
     with pytest.raises(ValueError, match="limit must be >= 1"):
         mcp_server.oghma_search(query="hit", limit=0)
+
+
+def test_oghma_search_rejects_invalid_mode(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_storage = MagicMock()
+    monkeypatch.setattr(mcp_server.mcp, "get_context", lambda: {"storage": fake_storage})
+
+    with pytest.raises(ValueError, match="search_mode must be one of"):
+        mcp_server.oghma_search(query="hit", search_mode="invalid")
 
 
 def test_oghma_get_uses_storage_context(monkeypatch: pytest.MonkeyPatch) -> None:

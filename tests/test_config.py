@@ -39,6 +39,7 @@ def test_create_default_config(mock_get_config_path):
         assert "storage" in config
         assert "daemon" in config
         assert "extraction" in config
+        assert "embedding" in config
         assert "export" in config
         assert "tools" in config
         assert mock_config_path.exists()
@@ -54,6 +55,7 @@ def test_load_config_creates_default_if_not_exists(mock_get_config_path):
 
         assert config is not None
         assert "storage" in config
+        assert "embedding" in config
         assert mock_config_path.exists()
 
 

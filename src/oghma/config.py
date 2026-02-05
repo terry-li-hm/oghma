@@ -32,6 +32,15 @@ class ExportConfig(TypedDict):
     format: str
 
 
+class EmbeddingConfig(TypedDict):
+    provider: str
+    model: str
+    dimensions: int
+    batch_size: int
+    rate_limit_delay: float
+    max_retries: int
+
+
 class ToolConfig(TypedDict, total=False):
     enabled: bool
     paths: list[str]
@@ -49,6 +58,7 @@ class Config(TypedDict):
     storage: StorageConfig
     daemon: DaemonConfig
     extraction: ExtractionConfig
+    embedding: EmbeddingConfig
     export: ExportConfig
     tools: ToolsConfig
 
@@ -72,6 +82,14 @@ DEFAULT_CONFIG: Config = {
         "max_content_chars": 4000,
         "categories": ["learning", "preference", "project_context", "gotcha", "workflow"],
         "confidence_threshold": 0.5,
+    },
+    "embedding": {
+        "provider": "openai",
+        "model": "text-embedding-3-small",
+        "dimensions": 1536,
+        "batch_size": 100,
+        "rate_limit_delay": 0.1,
+        "max_retries": 3,
     },
     "export": {
         "output_dir": "~/.oghma/export",
@@ -154,16 +172,25 @@ def _apply_env_overrides(config: Config) -> Config:
         "OGHMA_EXPORT_DIR": ("export", "output_dir"),
         "OGHMA_EXPORT_FORMAT": ("export", "format"),
         "OGHMA_EXTRACTION_MODEL": ("extraction", "model"),
+        "OGHMA_EMBEDDING_PROVIDER": ("embedding", "provider"),
+        "OGHMA_EMBEDDING_MODEL": ("embedding", "model"),
+        "OGHMA_EMBEDDING_DIMENSIONS": ("embedding", "dimensions"),
     }
 
     for env_var, (section, key) in overrides.items():
         value = os.environ.get(env_var)
         if value is not None:
-            if key in ["poll_interval", "backup_retention_days"]:
+            if key in [
+                "poll_interval",
+                "backup_retention_days",
+                "dimensions",
+                "batch_size",
+                "max_retries",
+            ]:
                 config[section][key] = int(value)
             elif key in ["backup_enabled"]:
                 config[section][key] = value.lower() in ("true", "1", "yes")
-            elif key == "confidence_threshold":
+            elif key in ["confidence_threshold", "rate_limit_delay"]:
                 config[section][key] = float(value)
             else:
                 config[section][key] = value
@@ -188,7 +215,7 @@ def _expand_paths_inplace(config: Config) -> None:
 def validate_config(config: Config) -> list[str]:
     errors: list[str] = []
 
-    required_sections = ["storage", "daemon", "extraction", "export"]
+    required_sections = ["storage", "daemon", "extraction", "embedding", "export"]
     for section in required_sections:
         if section not in config:
             errors.append(f"Missing required section: {section}")
@@ -216,6 +243,15 @@ def validate_config(config: Config) -> list[str]:
             errors.append("extraction.model is required")
         if "categories" not in extraction or not extraction["categories"]:
             errors.append("extraction.categories must not be empty")
+
+    if "embedding" in config:
+        embedding = config["embedding"]
+        if "provider" not in embedding or not embedding["provider"]:
+            errors.append("embedding.provider is required")
+        if "model" not in embedding or not embedding["model"]:
+            errors.append("embedding.model is required")
+        if "dimensions" not in embedding or embedding["dimensions"] <= 0:
+            errors.append("embedding.dimensions must be positive")
 
     return errors
 

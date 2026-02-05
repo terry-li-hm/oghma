@@ -38,6 +38,7 @@ def test_add_memory(storage):
     assert memory["content"] == "Test memory content"
     assert memory["category"] == "learning"
     assert memory["source_tool"] == "claude_code"
+    assert memory["has_embedding"] == 0
 
 
 def test_add_memory_with_optional_fields(storage):
@@ -56,6 +57,68 @@ def test_add_memory_with_optional_fields(storage):
     assert memory["source_session"] == "session-123"
     assert memory["confidence"] == 0.9
     assert memory["metadata"] == {"key": "value"}
+
+
+def test_search_memories_hybrid_keyword_mode(storage):
+    storage.add_memory(
+        content="Screen recording fails when tmux starts via SSH",
+        category="gotcha",
+        source_tool="claude_code",
+        source_file="/path/file1.jsonl",
+    )
+    storage.add_memory(
+        content="Use local tmux to inherit macOS permissions",
+        category="workflow",
+        source_tool="codex",
+        source_file="/path/file2.jsonl",
+    )
+
+    results = storage.search_memories_hybrid(
+        query="tmux",
+        query_embedding=None,
+        search_mode="keyword",
+    )
+    assert len(results) >= 1
+
+
+def test_search_memories_hybrid_fallback_without_embeddings(storage):
+    storage.add_memory(
+        content="Hybrid fallback should still use keyword search",
+        category="learning",
+        source_tool="claude_code",
+        source_file="/path/file1.jsonl",
+    )
+
+    results = storage.search_memories_hybrid(
+        query="keyword",
+        query_embedding=[0.1, 0.2],
+        search_mode="hybrid",
+    )
+    assert len(results) == 1
+    assert "keyword" in results[0]["content"]
+
+
+def test_search_memories_hybrid_invalid_mode(storage):
+    with pytest.raises(ValueError, match="search_mode must be one of"):
+        storage.search_memories_hybrid(query="test", search_mode="invalid")
+
+
+def test_add_memory_with_embedding_sets_flag(storage):
+    if not storage._vector_search_enabled:
+        pytest.skip("sqlite-vec extension not available")
+
+    embedding = [0.0] * storage.embedding_dimensions
+    memory_id = storage.add_memory(
+        content="Embedded memory",
+        category="learning",
+        source_tool="claude_code",
+        source_file="/path/embedded.jsonl",
+        embedding=embedding,
+    )
+
+    memory = storage.get_memory_by_id(memory_id)
+    assert memory is not None
+    assert memory["has_embedding"] == 1
 
 
 def test_search_memories(storage):
