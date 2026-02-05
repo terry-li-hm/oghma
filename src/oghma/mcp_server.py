@@ -5,6 +5,7 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 from oghma.config import load_config
+from oghma.embedder import EmbedConfig, create_embedder
 from oghma.storage import MemoryRecord, Storage
 
 
@@ -12,7 +13,7 @@ from oghma.storage import MemoryRecord, Storage
 async def lifespan(_: FastMCP):
     config = load_config()
     storage = Storage(config=config, read_only=True)
-    yield {"storage": storage}
+    yield {"storage": storage, "config": config}
 
 
 mcp = FastMCP("Oghma Memory", lifespan=lifespan)
@@ -22,23 +23,49 @@ def _get_storage() -> Storage:
     return mcp.get_context()["storage"]
 
 
+def _get_config() -> dict[str, Any]:
+    return mcp.get_context().get("config", {})
+
+
 @mcp.tool()
 def oghma_search(
     query: str,
     category: str | None = None,
     source_tool: str | None = None,
     limit: int = 10,
+    search_mode: str = "keyword",
 ) -> list[MemoryRecord]:
-    """Search memories by keyword."""
+    """Search memories by keyword, vector, or hybrid mode."""
     if limit < 1:
         raise ValueError("limit must be >= 1")
+    if search_mode not in {"keyword", "vector", "hybrid"}:
+        raise ValueError("search_mode must be one of: keyword, vector, hybrid")
 
     storage = _get_storage()
-    return storage.search_memories(
+    if search_mode == "keyword":
+        return storage.search_memories(
+            query=query,
+            category=category,
+            source_tool=source_tool,
+            limit=limit,
+        )
+
+    query_embedding: list[float] | None = None
+    try:
+        embed_config = _get_config().get("embedding", {})
+        embedder = create_embedder(EmbedConfig.from_dict(embed_config))
+        query_embedding = embedder.embed(query)
+    except Exception:
+        if search_mode == "vector":
+            return []
+
+    return storage.search_memories_hybrid(
         query=query,
+        query_embedding=query_embedding,
         category=category,
         source_tool=source_tool,
         limit=limit,
+        search_mode=search_mode,
     )
 
 

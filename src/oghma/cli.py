@@ -7,6 +7,7 @@ import click
 from rich.console import Console
 from rich.table import Table
 
+from oghma import __version__
 from oghma.config import (
     create_default_config,
     get_config_path,
@@ -14,14 +15,16 @@ from oghma.config import (
     validate_config,
 )
 from oghma.daemon import Daemon, get_daemon_pid
+from oghma.embedder import EmbedConfig, create_embedder
 from oghma.exporter import Exporter, ExportOptions
+from oghma.migration import EmbeddingMigration
 from oghma.storage import Storage
 
 console = Console()
 
 
 @click.group()
-@click.version_option(version="0.1.0", prog_name="oghma")
+@click.version_option(version=__version__, prog_name="oghma")
 def cli() -> None:
     pass
 
@@ -186,12 +189,31 @@ def stop() -> None:
 @click.argument("query")
 @click.option("--limit", "-n", default=10, help="Max results")
 @click.option("--category", "-c", help="Filter by category")
-def search(query: str, limit: int, category: str | None) -> None:
+@click.option(
+    "--mode",
+    type=click.Choice(["keyword", "vector", "hybrid"]),
+    default="keyword",
+    show_default=True,
+    help="Search strategy",
+)
+def search(query: str, limit: int, category: str | None, mode: str) -> None:
     try:
         config = load_config()
         storage = Storage(config=config)
+        query_embedding: list[float] | None = None
 
-        results = storage.search_memories(query, limit=limit, category=category)
+        if mode in {"vector", "hybrid"}:
+            embed_config = config.get("embedding", {})
+            embedder = create_embedder(EmbedConfig.from_dict(embed_config))
+            query_embedding = embedder.embed(query)
+
+        results = storage.search_memories_hybrid(
+            query=query,
+            query_embedding=query_embedding,
+            limit=limit,
+            category=category,
+            search_mode=mode,
+        )
 
         if not results:
             console.print(f"[yellow]No memories found matching: {query}[/yellow]")
@@ -218,6 +240,57 @@ def search(query: str, limit: int, category: str | None) -> None:
         raise SystemExit(1) from None
     except Exception as e:
         console.print(f"[red]Error searching memories: {e}[/red]")
+        raise SystemExit(1) from None
+
+
+@cli.command("migrate-embeddings")
+@click.option("--batch-size", default=100, show_default=True, help="Batch size")
+@click.option("--dry-run", is_flag=True, help="Preview migration without writing embeddings")
+def migrate_embeddings(batch_size: int, dry_run: bool) -> None:
+    try:
+        config = load_config()
+        storage = Storage(config=config)
+
+        done_before, total = storage.get_embedding_progress()
+        console.print(
+            f"[blue]Embedding progress before migration:[/blue] {done_before}/{total} memories"
+        )
+
+        if done_before == total and total > 0:
+            console.print("[green]All active memories already have embeddings.[/green]")
+            return
+
+        embed_config = config.get("embedding", {})
+        embedder = create_embedder(EmbedConfig.from_dict(embed_config, batch_size=batch_size))
+
+        migration = EmbeddingMigration(
+            storage=storage,
+            embedder=embedder,
+            batch_size=batch_size,
+        )
+        result = migration.run(dry_run=dry_run)
+
+        done_after, total_after = storage.get_embedding_progress()
+        if dry_run:
+            console.print(
+                f"[yellow]Dry run complete.[/yellow] "
+                f"Would process {result.processed} memories."
+            )
+            return
+
+        console.print(
+            "[green]Migration complete.[/green] "
+            f"Processed={result.processed}, migrated={result.migrated}, "
+            f"failed={result.failed}, skipped={result.skipped}"
+        )
+        console.print(
+            f"[cyan]Embedding progress after migration:[/cyan] {done_after}/{total_after} memories"
+        )
+    except FileNotFoundError:
+        console.print("[red]Config not found. Run 'oghma init' first.[/red]")
+        raise SystemExit(1) from None
+    except Exception as e:
+        console.print(f"[red]Error migrating embeddings: {e}[/red]")
         raise SystemExit(1) from None
 
 
