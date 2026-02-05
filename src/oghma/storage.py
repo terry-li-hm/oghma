@@ -4,7 +4,8 @@ import logging
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any
+from typing_extensions import TypedDict
 
 from oghma.config import Config, get_db_path
 
