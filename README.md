@@ -54,6 +54,27 @@ Or via environment: `OGHMA_EXTRACTION_MODEL=google/gemini-3-flash-preview`
 | oghma search "query" | Search memories |
 | oghma export | Export memories to files |
 
+## MCP Server
+
+Native Claude Code integration via MCP. Add to `~/.claude.json`:
+
+```json
+{
+  "mcpServers": {
+    "oghma": {
+      "command": "uvx",
+      "args": ["--from", "oghma", "oghma", "mcp-server"]
+    }
+  }
+}
+```
+
+Available tools:
+- `oghma_search`: Search memories by keyword (supports category/source_tool filters)
+- `ogma_get`: Get a memory by ID
+- `oghma_stats`: Get memory database statistics
+- `oghma_categories`: List categories with memory counts
+
 ## Environment Variables
 
 - OGHMA_DB_PATH: Override database path
