@@ -85,7 +85,7 @@ def test_lifespan_initializes_read_only_storage(
 def test_oghma_search_uses_storage_context(monkeypatch: pytest.MonkeyPatch) -> None:
     fake_storage = MagicMock()
     fake_storage.search_memories.return_value = [{"id": 1, "content": "hit"}]
-    monkeypatch.setattr(mcp_server.mcp, "get_context", lambda: {"storage": fake_storage})
+    monkeypatch.setattr(mcp_server, "_get_lifespan_context", lambda: {"storage": fake_storage})
 
     results = mcp_server.oghma_search(
         query="hit",
@@ -105,7 +105,7 @@ def test_oghma_search_uses_storage_context(monkeypatch: pytest.MonkeyPatch) -> N
 
 def test_oghma_search_rejects_invalid_limit(monkeypatch: pytest.MonkeyPatch) -> None:
     fake_storage = MagicMock()
-    monkeypatch.setattr(mcp_server.mcp, "get_context", lambda: {"storage": fake_storage})
+    monkeypatch.setattr(mcp_server, "_get_lifespan_context", lambda: {"storage": fake_storage})
 
     with pytest.raises(ValueError, match="limit must be >= 1"):
         mcp_server.oghma_search(query="hit", limit=0)
@@ -113,7 +113,7 @@ def test_oghma_search_rejects_invalid_limit(monkeypatch: pytest.MonkeyPatch) -> 
 
 def test_oghma_search_rejects_invalid_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     fake_storage = MagicMock()
-    monkeypatch.setattr(mcp_server.mcp, "get_context", lambda: {"storage": fake_storage})
+    monkeypatch.setattr(mcp_server, "_get_lifespan_context", lambda: {"storage": fake_storage})
 
     with pytest.raises(ValueError, match="search_mode must be one of"):
         mcp_server.oghma_search(query="hit", search_mode="invalid")
@@ -122,7 +122,7 @@ def test_oghma_search_rejects_invalid_mode(monkeypatch: pytest.MonkeyPatch) -> N
 def test_oghma_get_uses_storage_context(monkeypatch: pytest.MonkeyPatch) -> None:
     fake_storage = MagicMock()
     fake_storage.get_memory_by_id.return_value = {"id": 42, "content": "memory"}
-    monkeypatch.setattr(mcp_server.mcp, "get_context", lambda: {"storage": fake_storage})
+    monkeypatch.setattr(mcp_server, "_get_lifespan_context", lambda: {"storage": fake_storage})
 
     result = mcp_server.oghma_get(memory_id=42)
 
@@ -139,7 +139,7 @@ def test_oghma_stats_returns_aggregates(monkeypatch: pytest.MonkeyPatch) -> None
         {"category": "gotcha", "source_tool": "codex"},
     ]
     fake_storage.get_recent_extraction_logs.return_value = [{"created_at": "2026-02-05 10:00:00"}]
-    monkeypatch.setattr(mcp_server.mcp, "get_context", lambda: {"storage": fake_storage})
+    monkeypatch.setattr(mcp_server, "_get_lifespan_context", lambda: {"storage": fake_storage})
 
     result = mcp_server.oghma_stats()
 
@@ -156,7 +156,7 @@ def test_oghma_categories_returns_sorted_counts(monkeypatch: pytest.MonkeyPatch)
         {"category": "learning"},
         {"category": "workflow"},
     ]
-    monkeypatch.setattr(mcp_server.mcp, "get_context", lambda: {"storage": fake_storage})
+    monkeypatch.setattr(mcp_server, "_get_lifespan_context", lambda: {"storage": fake_storage})
 
     result = mcp_server.oghma_categories()
 
@@ -170,7 +170,7 @@ def test_oghma_tools_work_with_real_storage_context(
     monkeypatch: pytest.MonkeyPatch, seeded_storage: Storage
 ) -> None:
     read_only_storage = Storage(db_path=seeded_storage.db_path, read_only=True)
-    monkeypatch.setattr(mcp_server.mcp, "get_context", lambda: {"storage": read_only_storage})
+    monkeypatch.setattr(mcp_server, "_get_lifespan_context", lambda: {"storage": read_only_storage})
 
     search_results = mcp_server.oghma_search(query="Python", limit=10)
     assert len(search_results) == 1

@@ -19,12 +19,17 @@ async def lifespan(_: FastMCP):
 mcp = FastMCP("Oghma Memory", lifespan=lifespan)
 
 
+def _get_lifespan_context() -> dict[str, Any]:
+    ctx = mcp.get_context()
+    return ctx.request_context.lifespan_context
+
+
 def _get_storage() -> Storage:
-    return mcp.get_context()["storage"]
+    return _get_lifespan_context()["storage"]
 
 
 def _get_config() -> dict[str, Any]:
-    return mcp.get_context().get("config", {})
+    return _get_lifespan_context().get("config", {})
 
 
 @mcp.tool()
