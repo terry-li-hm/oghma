@@ -356,6 +356,40 @@ class Storage:
             row = cursor.fetchone()
             return row[0] if row else 0
 
+    def get_all_memories(
+        self, status: str = "active", category: str | None = None
+    ) -> list[MemoryRecord]:
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+
+            sql = "SELECT * FROM memories WHERE status = ?"
+            params: list[str] = [status]
+
+            if category:
+                sql += " AND category = ?"
+                params.append(category)
+
+            sql += " ORDER BY created_at DESC"
+            cursor.execute(sql, params)
+            rows = cursor.fetchall()
+
+            return [
+                {
+                    "id": row["id"],
+                    "content": row["content"],
+                    "category": row["category"],
+                    "source_tool": row["source_tool"],
+                    "source_file": row["source_file"],
+                    "source_session": row["source_session"],
+                    "confidence": row["confidence"],
+                    "created_at": row["created_at"],
+                    "updated_at": row["updated_at"],
+                    "status": row["status"],
+                    "metadata": json.loads(row["metadata"]) if row["metadata"] else {},
+                }
+                for row in rows
+            ]
+
     def get_all_extraction_states(self) -> list[ExtractionStateRecord]:
         with self._get_connection() as conn:
             cursor = conn.cursor()

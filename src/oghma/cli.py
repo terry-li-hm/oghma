@@ -14,6 +14,7 @@ from oghma.config import (
     validate_config,
 )
 from oghma.daemon import Daemon, get_daemon_pid
+from oghma.exporter import Exporter, ExportOptions
 from oghma.storage import Storage
 
 console = Console()
@@ -217,6 +218,50 @@ def search(query: str, limit: int, category: str | None) -> None:
         raise SystemExit(1) from None
     except Exception as e:
         console.print(f"[red]Error searching memories: {e}[/red]")
+        raise SystemExit(1) from None
+
+
+@cli.command()
+@click.option("--output", "-o", type=click.Path(), help="Output directory")
+@click.option("--format", "-f", type=click.Choice(["markdown", "json"]), default="markdown")
+@click.option(
+    "--group-by", "-g", type=click.Choice(["category", "date", "source"]), default="category"
+)
+@click.option("--category", "-c", help="Export only this category")
+def export(output: str | None, format: str, group_by: str, category: str | None) -> None:
+    """Export memories to files."""
+    try:
+        config = load_config()
+        storage = Storage(config=config)
+
+        output_dir = Path(output or config["export"]["output_dir"])
+
+        options = ExportOptions(output_dir=output_dir, format=format, group_by=group_by)
+        exporter = Exporter(storage, options)
+
+        if category:
+            console.print(f"[blue]Exporting memories for category: {category}[/blue]")
+            file_path = exporter.export_category(category)
+            console.print(f"[green]Exported to: {file_path}[/green]")
+        else:
+            console.print(f"[blue]Exporting memories (grouped by {group_by})...[/blue]")
+            files = exporter.export()
+
+            if not files:
+                console.print("[yellow]No memories found to export[/yellow]")
+                return
+
+            for file_path in files:
+                console.print(f"[green]Exported to: {file_path}[/green]")
+
+    except ValueError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise SystemExit(1) from None
+    except FileNotFoundError:
+        console.print("[red]Config not found. Run 'oghma init' first.[/red]")
+        raise SystemExit(1) from None
+    except Exception as e:
+        console.print(f"[red]Error exporting memories: {e}[/red]")
         raise SystemExit(1) from None
 
 
