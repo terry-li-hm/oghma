@@ -1,3 +1,4 @@
+import json
 import tempfile
 from collections.abc import Generator
 from pathlib import Path
@@ -140,6 +141,19 @@ def test_status_shows_info(runner: CliRunner, temp_config: Config, temp_db: Path
             assert result.exit_code == 0
             assert "Memory Count" in result.output
             assert "Database Status" in result.output
+
+
+def test_status_json_output(runner: CliRunner, temp_config: Config, temp_db: Path) -> None:
+    """Test status JSON output."""
+    with patch("oghma.cli.load_config", return_value=temp_config):
+        with patch("oghma.cli.get_config_path", return_value=Path("/fake/config.yaml")):
+            result = runner.invoke(cli, ["status", "--json"])
+
+            assert result.exit_code == 0
+            payload = json.loads(result.output)
+            assert payload["config_path"] == "/fake/config.yaml"
+            assert "memory_count" in payload
+            assert "database" in payload
 
 
 def test_status_with_empty_db(runner: CliRunner, temp_config: Config) -> None:
