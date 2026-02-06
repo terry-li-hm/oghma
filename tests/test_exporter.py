@@ -140,6 +140,21 @@ def test_export_group_by_source(populated_storage, temp_output_dir):
     assert "openclaw" in file_names
 
 
+def test_export_filters_by_source_tool(populated_storage, temp_output_dir):
+    options = ExportOptions(
+        output_dir=temp_output_dir,
+        format="markdown",
+        group_by="category",
+        source_tool="opencode",
+    )
+    exporter = Exporter(populated_storage, options)
+    files = exporter.export()
+
+    assert len(files) == 1
+    content = files[0].read_text()
+    assert "SQLite FTS5 supports full-text search" in content
+
+
 def test_export_creates_output_dir(populated_storage):
     with tempfile.TemporaryDirectory() as tmpdir:
         output_dir = Path(tmpdir) / "nested" / "export" / "dir"
