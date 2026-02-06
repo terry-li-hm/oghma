@@ -186,6 +186,56 @@ def stop() -> None:
 
 
 @cli.command()
+@click.option(
+    "--status",
+    type=click.Choice(["active", "archived"]),
+    default="active",
+    show_default=True,
+    help="Filter by status",
+)
+def stats(status: str) -> None:
+    """Show memory stats by category and source tool."""
+    try:
+        config = load_config()
+        storage = Storage(config=config)
+        memories = storage.get_all_memories(status=status)
+
+        if not memories:
+            console.print(f"[yellow]No {status} memories found[/yellow]")
+            return
+
+        category_counts: dict[str, int] = {}
+        source_counts: dict[str, int] = {}
+        for memory in memories:
+            category_counts[memory["category"]] = category_counts.get(memory["category"], 0) + 1
+            source_counts[memory["source_tool"]] = source_counts.get(memory["source_tool"], 0) + 1
+
+        console.print(f"[cyan]Total {status} memories:[/cyan] {len(memories)}\n")
+
+        category_table = Table(title="By Category", show_header=True, header_style="bold magenta")
+        category_table.add_column("Category", style="cyan")
+        category_table.add_column("Count", style="green")
+        for category, count in sorted(category_counts.items()):
+            category_table.add_row(category, str(count))
+        console.print(category_table)
+        console.print()
+
+        source_table = Table(title="By Source Tool", show_header=True, header_style="bold magenta")
+        source_table.add_column("Source Tool", style="cyan")
+        source_table.add_column("Count", style="green")
+        for source, count in sorted(source_counts.items()):
+            source_table.add_row(source, str(count))
+        console.print(source_table)
+
+    except FileNotFoundError:
+        console.print("[red]Config not found. Run 'oghma init' first.[/red]")
+        raise SystemExit(1) from None
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise SystemExit(1) from None
+
+
+@cli.command()
 @click.argument("query")
 @click.option("--limit", "-n", default=10, help="Max results")
 @click.option("--category", "-c", help="Filter by category")
