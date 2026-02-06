@@ -113,7 +113,13 @@ def oghma_add(
     confidence: float = 1.0,
 ) -> dict[str, Any]:
     """Add a memory directly. Categories: learning, preference, project_context, gotcha, workflow."""
-    valid_categories = ["learning", "preference", "project_context", "gotcha", "workflow"]
+    valid_categories = (
+        _get_config().get("extraction", {}).get(
+            "categories",
+            ["learning", "preference", "project_context", "gotcha", "workflow"],
+        )
+        or ["learning", "preference", "project_context", "gotcha", "workflow"]
+    )
     if category not in valid_categories:
         raise ValueError(f"category must be one of: {valid_categories}")
 

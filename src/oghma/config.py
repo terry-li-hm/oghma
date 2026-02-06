@@ -1,4 +1,5 @@
 import os
+from copy import deepcopy
 from pathlib import Path
 from typing_extensions import TypedDict
 
@@ -127,7 +128,7 @@ def load_config() -> Config:
 
     from typing import cast
 
-    merged = _merge_defaults(cast(dict, DEFAULT_CONFIG), loaded)
+    merged = _merge_defaults(deepcopy(cast(dict, DEFAULT_CONFIG)), loaded)
     merged = _apply_env_overrides(merged)
     _expand_paths_inplace(merged)
 
@@ -140,7 +141,7 @@ def create_default_config() -> Config:
     config_path = get_config_path()
     config_path.parent.mkdir(parents=True, exist_ok=True)
 
-    config = _apply_env_overrides(cast(Config, DEFAULT_CONFIG.copy()))
+    config = _apply_env_overrides(cast(Config, deepcopy(DEFAULT_CONFIG)))
     _expand_paths_inplace(config)
 
     with open(config_path, "w") as f:
@@ -164,17 +165,26 @@ def _merge_defaults(defaults: dict, loaded: dict) -> Config:
 def _apply_env_overrides(config: Config) -> Config:
     overrides = {
         "OGHMA_DB_PATH": ("storage", "db_path"),
+        "OGHMA_BACKUP_ENABLED": ("storage", "backup_enabled"),
         "OGHMA_BACKUP_DIR": ("storage", "backup_dir"),
+        "OGHMA_BACKUP_RETENTION_DAYS": ("storage", "backup_retention_days"),
         "OGHMA_POLL_INTERVAL": ("daemon", "poll_interval"),
         "OGHMA_LOG_LEVEL": ("daemon", "log_level"),
         "OGHMA_LOG_FILE": ("daemon", "log_file"),
         "OGHMA_PID_FILE": ("daemon", "pid_file"),
+        "OGHMA_DAEMON_MIN_MESSAGES": ("daemon", "min_messages"),
         "OGHMA_EXPORT_DIR": ("export", "output_dir"),
         "OGHMA_EXPORT_FORMAT": ("export", "format"),
         "OGHMA_EXTRACTION_MODEL": ("extraction", "model"),
+        "OGHMA_EXTRACTION_MAX_CONTENT_CHARS": ("extraction", "max_content_chars"),
+        "OGHMA_EXTRACTION_CATEGORIES": ("extraction", "categories"),
+        "OGHMA_EXTRACTION_CONFIDENCE_THRESHOLD": ("extraction", "confidence_threshold"),
         "OGHMA_EMBEDDING_PROVIDER": ("embedding", "provider"),
         "OGHMA_EMBEDDING_MODEL": ("embedding", "model"),
         "OGHMA_EMBEDDING_DIMENSIONS": ("embedding", "dimensions"),
+        "OGHMA_EMBEDDING_BATCH_SIZE": ("embedding", "batch_size"),
+        "OGHMA_EMBEDDING_RATE_LIMIT_DELAY": ("embedding", "rate_limit_delay"),
+        "OGHMA_EMBEDDING_MAX_RETRIES": ("embedding", "max_retries"),
     }
 
     for env_var, (section, key) in overrides.items():
@@ -186,10 +196,15 @@ def _apply_env_overrides(config: Config) -> Config:
                 "dimensions",
                 "batch_size",
                 "max_retries",
+                "max_content_chars",
+                "min_messages",
             ]:
                 config[section][key] = int(value)
             elif key in ["backup_enabled"]:
                 config[section][key] = value.lower() in ("true", "1", "yes")
+            elif key in ["categories"]:
+                categories = [item.strip() for item in value.split(",") if item.strip()]
+                config[section][key] = categories
             elif key in ["confidence_threshold", "rate_limit_delay"]:
                 config[section][key] = float(value)
             else:

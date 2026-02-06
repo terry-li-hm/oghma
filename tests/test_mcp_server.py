@@ -77,7 +77,6 @@ def test_lifespan_initializes_writable_storage(
         async with mcp_server.lifespan(mcp_server.mcp) as context:
             storage = context["storage"]
             assert storage.read_only is False
-            assert context.get("embedder") is not None or context.get("embedder") is None
             assert storage.get_memory_count() == 0
 
     asyncio.run(_run())
