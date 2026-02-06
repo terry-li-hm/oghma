@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "oghma"
-version = "0.3.0"
+version = "0.4.0"
 description = "Unified AI memory layer for coding assistants"
-license = {text = "MIT"}
+license = "MIT"
 requires-python = ">=3.10"
 authors = [
     {name = "Oghma Contributors"},
