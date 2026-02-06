@@ -67,7 +67,7 @@ def seeded_storage(temp_config: Config) -> Storage:
     return storage
 
 
-def test_lifespan_initializes_read_only_storage(
+def test_lifespan_initializes_writable_storage(
     monkeypatch: pytest.MonkeyPatch, temp_config: Config
 ) -> None:
     Storage(config=temp_config)
@@ -76,7 +76,7 @@ def test_lifespan_initializes_read_only_storage(
     async def _run() -> None:
         async with mcp_server.lifespan(mcp_server.mcp) as context:
             storage = context["storage"]
-            assert storage.read_only is True
+            assert storage.read_only is False
             assert storage.get_memory_count() == 0
 
     asyncio.run(_run())
