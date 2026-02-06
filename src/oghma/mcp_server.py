@@ -12,8 +12,13 @@ from oghma.storage import MemoryRecord, Storage
 @asynccontextmanager
 async def lifespan(_: FastMCP):
     config = load_config()
-    storage = Storage(config=config, read_only=True)
-    yield {"storage": storage, "config": config}
+    storage = Storage(config=config, read_only=False)
+    try:
+        embed_config_data = config.get("embedding", {})
+        embedder = create_embedder(EmbedConfig.from_dict(embed_config_data))
+    except (ValueError, Exception):
+        embedder = None
+    yield {"storage": storage, "config": config, "embedder": embedder}
 
 
 mcp = FastMCP("Oghma Memory", lifespan=lifespan)
@@ -30,6 +35,10 @@ def _get_storage() -> Storage:
 
 def _get_config() -> dict[str, Any]:
     return _get_lifespan_context().get("config", {})
+
+
+def _get_embedder():
+    return _get_lifespan_context().get("embedder")
 
 
 @mcp.tool()
@@ -94,6 +103,38 @@ def oghma_stats() -> dict[str, Any]:
         "memories_by_source": dict(Counter(memory["source_tool"] for memory in memories)),
         "last_extraction_time": extraction_logs[0]["created_at"] if extraction_logs else None,
     }
+
+
+@mcp.tool()
+def oghma_add(
+    content: str,
+    category: str,
+    source_tool: str = "manual",
+    confidence: float = 1.0,
+) -> dict[str, Any]:
+    """Add a memory directly. Categories: learning, preference, project_context, gotcha, workflow."""
+    valid_categories = ["learning", "preference", "project_context", "gotcha", "workflow"]
+    if category not in valid_categories:
+        raise ValueError(f"category must be one of: {valid_categories}")
+
+    storage = _get_storage()
+    memory_id = storage.add_memory(
+        content=content,
+        category=category,
+        source_tool=source_tool,
+        source_file="mcp_direct",
+        confidence=confidence,
+    )
+
+    embedder = _get_embedder()
+    if embedder and memory_id:
+        try:
+            vector = embedder.embed(content)
+            storage.upsert_memory_embedding(memory_id, vector)
+        except Exception:
+            pass
+
+    return {"id": memory_id, "status": "created", "content": content, "category": category}
 
 
 @mcp.tool()

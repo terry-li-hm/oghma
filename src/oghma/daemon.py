@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 
 from oghma.config import Config
+from oghma.embedder import EmbedConfig, create_embedder
 from oghma.extractor import Extractor
 from oghma.parsers import get_parser_for_file
 from oghma.storage import Storage
@@ -22,6 +23,11 @@ class Daemon:
         self.storage = Storage(config=config)
         self.watcher = Watcher(config, self.storage)
         self.extractor = Extractor(config)
+        try:
+            embed_config_data = config.get("embedding", {})
+            self.embedder = create_embedder(EmbedConfig.from_dict(embed_config_data))
+        except (ValueError, Exception):
+            self.embedder = None
         self._setup_logging()
         self._running = False
 
@@ -111,8 +117,10 @@ class Daemon:
             size = file_path.stat().st_size
             source_session = self._get_session_id(file_path)
 
+            new_memory_ids = []
+            new_memory_contents = []
             for memory in memories:
-                self.storage.add_memory(
+                memory_id = self.storage.add_memory(
                     content=memory.content,
                     category=memory.category,
                     source_tool=source_tool,
@@ -120,6 +128,18 @@ class Daemon:
                     source_session=source_session,
                     confidence=memory.confidence,
                 )
+                if memory_id is not None:
+                    new_memory_ids.append(memory_id)
+                    new_memory_contents.append(memory.content)
+
+            if self.embedder and new_memory_contents:
+                try:
+                    vectors = self.embedder.embed_batch(new_memory_contents)
+                    for memory_id, vector in zip(new_memory_ids, vectors):
+                        self.storage.upsert_memory_embedding(memory_id, vector)
+                    logger.info(f"Embedded {len(new_memory_ids)} memories from {file_path}")
+                except Exception as e:
+                    logger.warning(f"Failed to embed memories from {file_path}: {e}")
 
             self.storage.update_extraction_state(str(file_path), mtime, size, len(messages))
 

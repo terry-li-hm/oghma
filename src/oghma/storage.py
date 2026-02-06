@@ -150,8 +150,7 @@ class Storage:
             cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {definition}")
 
     def _compute_content_hash(self, content: str, category: str, source_file: str) -> str:
-        hash_input = f"{content}{category}{source_file}"
-        return hashlib.sha256(hash_input.encode()).hexdigest()
+        return hashlib.sha256(content.encode()).hexdigest()
 
     def _migrate_dedup(self, cursor: sqlite3.Cursor) -> None:
         cursor.execute("DROP INDEX IF EXISTS idx_memories_dedup")
@@ -181,12 +180,12 @@ class Storage:
             WHERE id NOT IN (
                 SELECT MIN(id) FROM memories
                 WHERE content_hash IS NOT NULL
-                GROUP BY content_hash, source_file
+                GROUP BY content_hash
             )
         """)
 
         cursor.execute("""
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_memories_dedup ON memories(content_hash, source_file)
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_memories_dedup ON memories(content_hash)
         """)
 
     def _serialize_embedding(self, embedding: list[float]) -> Any:
