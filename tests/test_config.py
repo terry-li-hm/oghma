@@ -126,3 +126,14 @@ def test_env_override_log_level(mock_get_config_path):
 
         config = create_default_config()
         assert config["daemon"]["log_level"] == "DEBUG"
+
+
+@patch("oghma.config.get_config_path")
+@patch.dict(os.environ, {"OGHMA_EXTRACTION_CATEGORIES": "learning, preference, custom"})
+def test_env_override_extraction_categories(mock_get_config_path):
+    with tempfile.TemporaryDirectory() as tmpdir:
+        mock_config_path = Path(tmpdir) / "config.yaml"
+        mock_get_config_path.return_value = mock_config_path
+
+        config = create_default_config()
+        assert config["extraction"]["categories"] == ["learning", "preference", "custom"]

@@ -34,6 +34,8 @@ class Extractor:
         self.config = config
         self.model = config.get("extraction", {}).get("model", "gpt-4o-mini")
         self.max_chars = config.get("extraction", {}).get("max_content_chars", 4000)
+        self.categories = config.get("extraction", {}).get("categories") or self.CATEGORIES
+        self.confidence_threshold = config.get("extraction", {}).get("confidence_threshold", 0.5)
 
         # Determine which API to use based on model name
         if self.model.startswith(self.OPENROUTER_PREFIXES):
@@ -65,7 +67,10 @@ class Extractor:
                 memories = self._parse_response(response)
 
                 valid_memories = [
-                    m for m in memories if m.category in self.CATEGORIES and m.confidence >= 0.5
+                    m
+                    for m in memories
+                    if m.category in self.categories
+                    and m.confidence >= self.confidence_threshold
                 ]
 
                 logger.info(
@@ -123,7 +128,7 @@ class Extractor:
 
         messages_text = messages_text[: self.max_chars]
 
-        categories_desc = "\n".join(f"- {cat}" for cat in self.CATEGORIES)
+        categories_desc = "\n".join(f"- {cat}" for cat in self.categories)
 
         prompt = (
             "You are a memory extraction system. "

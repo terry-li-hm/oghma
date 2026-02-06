@@ -282,6 +282,7 @@ def stats(status: str) -> None:
 @click.argument("query")
 @click.option("--limit", "-n", default=10, help="Max results")
 @click.option("--category", "-c", help="Filter by category")
+@click.option("--tool", "-t", help="Filter by source tool")
 @click.option(
     "--status",
     type=click.Choice(["active", "archived"]),
@@ -300,6 +301,7 @@ def search(
     query: str,
     limit: int,
     category: str | None,
+    tool: str | None,
     status: str,
     mode: str,
 ) -> None:
@@ -318,6 +320,7 @@ def search(
             query_embedding=query_embedding,
             limit=limit,
             category=category,
+            source_tool=tool,
             status=status,
             search_mode=mode,
         )
