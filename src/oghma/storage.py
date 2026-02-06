@@ -575,7 +575,7 @@ class Storage:
                         SELECT m.*
                         FROM vec
                         JOIN memories m ON m.id = vec.memory_id
-                        ORDER BY m.created_at DESC
+                        ORDER BY (1.0 + 0.3 / (1.0 + (julianday('now') - julianday(m.created_at)))) DESC
                         LIMIT ? OFFSET ?
                     """
                     params: list[Any] = [
@@ -617,9 +617,11 @@ class Storage:
                             SELECT memory_id, (1.0 / (? + vec_rank)) * 0.5 AS score FROM vec
                         ),
                         ranked AS (
-                            SELECT memory_id, SUM(score) AS rrf_score
+                            SELECT rrf.memory_id,
+                                   SUM(rrf.score) * (1.0 + 0.5 / (1.0 + (julianday('now') - julianday(m.created_at)))) AS rrf_score
                             FROM rrf
-                            GROUP BY memory_id
+                            JOIN memories m ON m.id = rrf.memory_id
+                            GROUP BY rrf.memory_id
                         )
                         SELECT m.*
                         FROM ranked
