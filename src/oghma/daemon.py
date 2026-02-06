@@ -113,7 +113,7 @@ class Daemon:
             # Skip sessions with no/trivial human content
             user_messages = [m for m in messages if m.role == "user"]
             if not user_messages:
-                logger.debug(f"Skipping {file_path}: no user messages")
+                logger.info(f"Skipping {file_path}: no user messages")
                 mtime = file_path.stat().st_mtime
                 size = file_path.stat().st_size
                 self.storage.update_extraction_state(str(file_path), mtime, size, len(messages))
@@ -121,7 +121,7 @@ class Daemon:
 
             total_user_chars = sum(len(m.content) for m in user_messages)
             if total_user_chars < 200:
-                logger.debug(f"Skipping {file_path}: only {total_user_chars} chars of user content")
+                logger.info(f"Skipping {file_path}: only {total_user_chars} chars of user content")
                 mtime = file_path.stat().st_mtime
                 size = file_path.stat().st_size
                 self.storage.update_extraction_state(str(file_path), mtime, size, len(messages))
