@@ -105,7 +105,9 @@ class Storage:
         if not self._vec_available:
             return
         try:
+            conn.enable_load_extension(True)
             sqlite_vec.load(conn)
+            conn.enable_load_extension(False)
         except Exception:
             self._vector_search_enabled = False
             if not self._vec_load_warned:
