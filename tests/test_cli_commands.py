@@ -284,3 +284,13 @@ def test_status_shows_daemon_status(runner: CliRunner, temp_config: Config) -> N
             assert result.exit_code == 0
             assert "Daemon Status" in result.output
             assert "Stopped" in result.output or "Running" in result.output
+
+
+def test_stats_command(runner: CliRunner, temp_config: Config, temp_db: Path) -> None:
+    """Test stats command output."""
+    with patch("oghma.cli.load_config", return_value=temp_config):
+        result = runner.invoke(cli, ["stats"])
+
+        assert result.exit_code == 0
+        assert "By Category" in result.output
+        assert "By Source Tool" in result.output

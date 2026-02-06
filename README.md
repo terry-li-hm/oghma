@@ -73,6 +73,7 @@ Or environment variable: `OGHMA_EXTRACTION_MODEL=google/gemini-3-flash-preview`
 | oghma init | Create default config |
 | oghma status | Show daemon and database status |
 | oghma validate-config | Validate configuration and exit non-zero on errors |
+| oghma stats | Show memory counts by category/source |
 | oghma start | Start background daemon |
 | oghma stop | Stop daemon |
 | oghma search "query" | Search memories (--mode keyword/vector/hybrid) |
