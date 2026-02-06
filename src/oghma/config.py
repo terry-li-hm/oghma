@@ -78,7 +78,7 @@ DEFAULT_CONFIG: Config = {
         "min_messages": 6,
     },
     "extraction": {
-        "model": "gpt-4o-mini",
+        "model": "google/gemini-3-flash-preview",
         "max_content_chars": 4000,
         "categories": ["learning", "preference", "project_context", "gotcha", "workflow"],
         "confidence_threshold": 0.5,
