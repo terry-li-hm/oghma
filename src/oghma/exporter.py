@@ -12,6 +12,7 @@ class ExportOptions:
     format: str = "markdown"
     group_by: str = "category"
     include_metadata: bool = True
+    status: str = "active"
 
 
 class Exporter:
@@ -21,7 +22,7 @@ class Exporter:
 
     def export(self) -> list[Path]:
         """Export memories to files, returning list of created file paths."""
-        memories = self.storage.get_all_memories(status="active")
+        memories = self.storage.get_all_memories(status=self.options.status)
 
         if not memories:
             return []
@@ -39,7 +40,7 @@ class Exporter:
 
     def export_category(self, category: str) -> Path:
         """Export memories for a single category."""
-        memories = self.storage.get_all_memories(status="active", category=category)
+        memories = self.storage.get_all_memories(status=self.options.status, category=category)
 
         if not memories:
             raise ValueError(f"No memories found for category: {category}")

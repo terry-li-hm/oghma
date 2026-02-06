@@ -140,6 +140,32 @@ def test_export_group_by_source(populated_storage, temp_output_dir):
     assert "openclaw" in file_names
 
 
+def test_export_respects_status_filter(populated_storage, temp_output_dir):
+    storage = populated_storage
+    archived_id = storage.add_memory(
+        content="Archived memory content",
+        category="learning",
+        source_tool="claude_code",
+        source_file="/path/file5.jsonl",
+        confidence=0.95,
+    )
+    assert archived_id is not None
+    storage.update_memory_status(archived_id, "archived")
+
+    options = ExportOptions(
+        output_dir=temp_output_dir,
+        format="markdown",
+        group_by="category",
+        status="archived",
+    )
+    exporter = Exporter(storage, options)
+    files = exporter.export()
+
+    assert len(files) == 1
+    content = files[0].read_text()
+    assert "Archived memory content" in content
+
+
 def test_export_creates_output_dir(populated_storage):
     with tempfile.TemporaryDirectory() as tmpdir:
         output_dir = Path(tmpdir) / "nested" / "export" / "dir"
