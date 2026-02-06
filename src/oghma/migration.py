@@ -30,6 +30,13 @@ class EmbeddingMigration:
         migrated = 0
         failed = 0
 
+        if dry_run:
+            batch = self.storage.get_memories_without_embeddings(limit=10_000)
+            processed = len(batch)
+            return MigrationResult(
+                processed=processed, migrated=0, skipped=processed, failed=0
+            )
+
         while True:
             batch = self.storage.get_memories_without_embeddings(limit=self.batch_size)
             if not batch:
@@ -37,9 +44,6 @@ class EmbeddingMigration:
 
             contents = [memory["content"] for memory in batch]
             processed += len(batch)
-
-            if dry_run:
-                continue
 
             try:
                 vectors = self.embedder.embed_batch(contents)

@@ -361,7 +361,7 @@ def test_dedup_duplicate_memory_returns_none(storage):
     assert storage.get_memory_count() == 1
 
 
-def test_dedup_different_source_files_allowed(storage):
+def test_dedup_different_source_files_rejected(storage):
     memory_id_1 = storage.add_memory(
         content="Same content different file",
         category="learning",
@@ -376,12 +376,12 @@ def test_dedup_different_source_files_allowed(storage):
         source_tool="claude_code",
         source_file="/path/to/file2.jsonl",
     )
-    assert memory_id_2 is not None
+    assert memory_id_2 is None  # Content-only dedup rejects duplicates
 
-    assert storage.get_memory_count() == 2
+    assert storage.get_memory_count() == 1
 
 
-def test_dedup_different_categories_allowed(storage):
+def test_dedup_different_categories_rejected(storage):
     memory_id_1 = storage.add_memory(
         content="Same content different category",
         category="learning",
@@ -396,6 +396,6 @@ def test_dedup_different_categories_allowed(storage):
         source_tool="claude_code",
         source_file="/path/to/file.jsonl",
     )
-    assert memory_id_2 is not None
+    assert memory_id_2 is None  # Content-only dedup rejects duplicates
 
-    assert storage.get_memory_count() == 2
+    assert storage.get_memory_count() == 1

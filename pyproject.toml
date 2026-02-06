@@ -20,6 +20,8 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
+readme = "README.md"
+keywords = ["ai", "memory", "llm", "coding-assistant", "mcp", "embeddings"]
 dependencies = [
     "click>=8.0",
     "pyyaml>=6.0",
@@ -28,6 +30,11 @@ dependencies = [
     "mcp[cli]>=1.0",
     "sqlite-vec>=0.1.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/terry-li-hm/oghma"
+Repository = "https://github.com/terry-li-hm/oghma.git"
+"Bug Tracker" = "https://github.com/terry-li-hm/oghma/issues"
 
 [project.optional-dependencies]
 local = [

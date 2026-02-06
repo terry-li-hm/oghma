@@ -75,11 +75,13 @@ def test_parse_messages_with_parts(parser, fixture_dir):
     (session_dir / "msg_0001.json").write_text(json.dumps(msg1))
     (session_dir / "msg_0002.json").write_text(json.dumps(msg2))
 
-    part_dir = session_dir / "part" / "msg_msg1"
+    # Parts live at storage/part/<msg_filename_stem>/prt_*.json
+    storage_dir = fixture_dir / ".local" / "share" / "opencode" / "storage"
+    part_dir = storage_dir / "part" / "msg_0001"
     part_dir.mkdir(parents=True)
     (part_dir / "prt_0001.json").write_text(json.dumps(part1))
 
-    part_dir2 = session_dir / "part" / "msg_msg2"
+    part_dir2 = storage_dir / "part" / "msg_0002"
     part_dir2.mkdir(parents=True)
     (part_dir2 / "prt_0001.json").write_text(json.dumps(part2))
     (part_dir2 / "prt_0002.json").write_text(json.dumps(part3))

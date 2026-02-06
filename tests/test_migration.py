@@ -13,7 +13,9 @@ class FakeEmbedder(Embedder):
         super().__init__(EmbedConfig())
 
     def embed(self, text: str) -> list[float]:
-        return [float(len(text)), 0.0]
+        vec = [0.0] * 1536
+        vec[0] = float(len(text))
+        return vec
 
     def embed_batch(self, texts: list[str]) -> list[list[float]]:
         return [self.embed(text) for text in texts]
