@@ -88,6 +88,14 @@ class TestExtractor:
         assert extractor.config is not None
         assert extractor.model == "gpt-4o-mini"
         assert extractor.max_chars == 4000
+        assert extractor.categories == [
+            "learning",
+            "preference",
+            "project_context",
+            "gotcha",
+            "workflow",
+        ]
+        assert extractor.confidence_threshold == 0.5
 
     @patch.dict("os.environ", {}, clear=True)
     def test_extractor_no_api_key(self, mock_config):
@@ -180,6 +188,32 @@ class TestExtractor:
 
         assert len(memories) == 1
         assert memories[0].content == "Valid memory"
+
+    @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
+    @patch("oghma.extractor.OpenAI")
+    def test_extract_uses_custom_confidence_threshold(
+        self, mock_openai_class, mock_config, sample_messages
+    ):
+        """Test that configured confidence threshold is respected."""
+        mock_config["extraction"]["confidence_threshold"] = 0.9
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+
+        mock_response_data = [
+            {"content": "High", "category": "learning", "confidence": 0.95},
+            {"content": "Low", "category": "preference", "confidence": 0.85},
+        ]
+
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = json.dumps(mock_response_data)
+        mock_client.chat.completions.create.return_value = mock_response
+
+        extractor = Extractor(config=mock_config)
+        memories = extractor.extract(sample_messages, "claude_code")
+
+        assert len(memories) == 1
+        assert memories[0].content == "High"
 
     @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
     @patch("oghma.extractor.OpenAI")
@@ -322,3 +356,20 @@ class TestExtractor:
         assert "learning" in prompt
         assert "preference" in prompt
         assert "JSON format" in prompt
+
+    @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
+    def test_build_prompt_uses_config_categories(self, mock_config):
+        """Test prompt uses configured categories."""
+        mock_config["extraction"]["categories"] = ["learning", "custom"]
+        extractor = Extractor(config=mock_config)
+
+        messages = [
+            Message(role="user", content="How do I test?"),
+            Message(role="assistant", content="Use pytest"),
+        ]
+
+        prompt = extractor._build_prompt(messages)
+
+        assert "- learning" in prompt
+        assert "- custom" in prompt
+        assert "preference" not in prompt

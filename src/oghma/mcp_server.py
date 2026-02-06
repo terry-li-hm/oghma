@@ -5,6 +5,7 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 from oghma.config import load_config
+from oghma.extractor import Extractor
 from oghma.embedder import EmbedConfig, create_embedder
 from oghma.storage import MemoryRecord, Storage
 
@@ -112,13 +113,10 @@ def oghma_add(
     source_tool: str = "manual",
     confidence: float = 1.0,
 ) -> dict[str, Any]:
-    """Add a memory directly. Categories: learning, preference, project_context, gotcha, workflow."""
+    """Add a memory directly. Categories follow extraction.categories in config."""
     valid_categories = (
-        _get_config().get("extraction", {}).get(
-            "categories",
-            ["learning", "preference", "project_context", "gotcha", "workflow"],
-        )
-        or ["learning", "preference", "project_context", "gotcha", "workflow"]
+        _get_config().get("extraction", {}).get("categories", Extractor.CATEGORIES)
+        or Extractor.CATEGORIES
     )
     if category not in valid_categories:
         raise ValueError(f"category must be one of: {valid_categories}")
