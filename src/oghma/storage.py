@@ -374,6 +374,7 @@ class Storage:
         limit: int = 10,
         offset: int = 0,
     ) -> list[MemoryRecord]:
+        fts_query = self._escape_fts_query(query)
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
@@ -385,7 +386,7 @@ class Storage:
                 )
                 AND m.status = ?
             """
-            params: list[str | int] = [query, status]
+            params: list[str | int] = [fts_query, status]
 
             if category:
                 sql += " AND m.category = ?"
@@ -402,6 +403,12 @@ class Storage:
             rows = cursor.fetchall()
 
             return [self._row_to_memory_record(row) for row in rows]
+
+    def _escape_fts_query(self, query: str) -> str:
+        if not query.strip():
+            return '""'
+        escaped = query.replace('"', '""')
+        return f'"{escaped}"'
 
     def _row_to_memory_record(self, row: sqlite3.Row) -> MemoryRecord:
         return {

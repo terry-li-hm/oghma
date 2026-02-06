@@ -341,6 +341,19 @@ def test_get_recent_extraction_logs(storage):
     assert len(logs_all) == 3
 
 
+def test_search_memories_escapes_fts_query(storage):
+    storage.add_memory(
+        content='She said "hello" / then left',
+        category="learning",
+        source_tool="claude_code",
+        source_file="/path/to/file.jsonl",
+    )
+
+    results = storage.search_memories(query='She said "hello" / then left')
+    assert len(results) == 1
+    assert results[0]["content"] == 'She said "hello" / then left'
+
+
 def test_dedup_duplicate_memory_returns_none(storage):
     memory_id = storage.add_memory(
         content="Duplicate memory content",
