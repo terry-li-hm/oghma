@@ -183,6 +183,15 @@ def test_search_with_category_filter(runner: CliRunner, temp_config: Config, tem
         assert "preference" in result.output.lower()
 
 
+def test_search_with_tool_filter(runner: CliRunner, temp_config: Config, temp_db: Path) -> None:
+    """Test search with tool filter."""
+    with patch("oghma.cli.load_config", return_value=temp_config):
+        result = runner.invoke(cli, ["search", "content", "-t", "opencode"])
+
+        assert result.exit_code == 0
+        assert "opencode" in result.output.lower()
+
+
 def test_search_with_limit(runner: CliRunner, temp_config: Config, temp_db: Path) -> None:
     """Test search with limit option."""
     with patch("oghma.cli.load_config", return_value=temp_config):

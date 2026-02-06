@@ -33,6 +33,7 @@ export OPENROUTER_API_KEY=sk-or-...   # for extraction (if using OpenRouter mode
 oghma init
 oghma start
 oghma search "python typing"
+oghma search "memory" --tool codex --category workflow
 oghma export -o ./memories
 ```
 
