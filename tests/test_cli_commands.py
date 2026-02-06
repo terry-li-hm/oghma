@@ -1,3 +1,4 @@
+import json
 import tempfile
 from collections.abc import Generator
 from pathlib import Path
@@ -174,6 +175,19 @@ def test_validate_config_errors(runner: CliRunner) -> None:
         assert "Configuration errors" in result.output
 
 
+def test_status_json_output(runner: CliRunner, temp_config: Config, temp_db: Path) -> None:
+    """Test status JSON output."""
+    with patch("oghma.cli.load_config", return_value=temp_config):
+        with patch("oghma.cli.get_config_path", return_value=Path("/fake/config.yaml")):
+            result = runner.invoke(cli, ["status", "--json"])
+
+            assert result.exit_code == 0
+            payload = json.loads(result.output)
+            assert payload["config_path"] == "/fake/config.yaml"
+            assert "memory_count" in payload
+            assert "database" in payload
+
+
 def test_status_with_empty_db(runner: CliRunner, temp_config: Config) -> None:
     """Test status when database doesn't exist yet."""
     db_path = Path(temp_config["storage"]["db_path"])
@@ -215,9 +229,7 @@ def test_search_with_category_filter(runner: CliRunner, temp_config: Config, tem
         assert "preference" in result.output.lower()
 
 
-def test_search_with_status_filter(
-    runner: CliRunner, temp_config: Config, temp_db: Path
-) -> None:
+def test_search_with_status_filter(runner: CliRunner, temp_config: Config, temp_db: Path) -> None:
     """Test search with status filter."""
     from oghma.storage import Storage
 

@@ -1,3 +1,4 @@
+import json
 import os
 import signal
 import time
@@ -47,12 +48,23 @@ def init() -> None:
 
 
 @cli.command()
-def status() -> None:
+@click.option("--json", "as_json", is_flag=True, help="Output status as JSON")
+def status(as_json: bool) -> None:
     try:
         config_path = get_config_path()
         config = load_config()
         db_path = config["storage"]["db_path"]
         pid_file = config["daemon"]["pid_file"]
+
+        status_payload = {
+            "config_path": str(config_path),
+            "daemon": {"running": False, "pid": None},
+            "database": {"path": db_path, "exists": False},
+            "memory_count": 0,
+            "last_extraction": None,
+            "watched_files": 0,
+            "config_errors": [],
+        }
 
         table = Table(title="Oghma Status", show_header=True, header_style="bold magenta")
         table.add_column("Property", style="cyan")
@@ -62,6 +74,7 @@ def status() -> None:
 
         pid = get_daemon_pid(pid_file)
         if pid:
+            status_payload["daemon"] = {"running": True, "pid": pid}
             table.add_row("Daemon Status", f"[green]Running (PID: {pid})[/green]")
         else:
             table.add_row("Daemon Status", "[red]Stopped[/red]")
@@ -69,13 +82,16 @@ def status() -> None:
         table.add_row("Database Path", db_path)
 
         if Path(db_path).exists():
+            status_payload["database"]["exists"] = True
             storage = Storage(db_path, config)
             memory_count = storage.get_memory_count()
+            status_payload["memory_count"] = memory_count
             table.add_row("Memory Count", str(memory_count))
 
             logs = storage.get_recent_extraction_logs(limit=1)
             if logs:
                 last_extraction = logs[0]["created_at"]
+                status_payload["last_extraction"] = last_extraction
                 table.add_row("Last Extraction", last_extraction)
             else:
                 table.add_row("Last Extraction", "Never")
@@ -86,6 +102,7 @@ def status() -> None:
 
             watcher = Watcher(config, storage)
             watched_files = watcher.discover_files()
+            status_payload["watched_files"] = len(watched_files)
             table.add_row("Watched Files", str(len(watched_files)))
         else:
             table.add_row("Memory Count", "0")
@@ -93,9 +110,15 @@ def status() -> None:
             table.add_row("Database Status", "[yellow]Not created yet[/yellow]")
             table.add_row("Watched Files", "0")
 
-        console.print(table)
-
         errors = validate_config(config)
+        if errors:
+            status_payload["config_errors"] = errors
+
+        if as_json:
+            console.print(json.dumps(status_payload, indent=2))
+            return
+
+        console.print(table)
         if errors:
             console.print("\n[red]Configuration errors:[/red]")
             for error in errors:
