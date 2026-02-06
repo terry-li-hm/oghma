@@ -15,7 +15,16 @@ class OpenCodeParser(BaseParser):
         messages: list[Message] = []
 
         message_files = sorted(file_path.glob("msg_*.json"))
-        part_files = list(file_path.glob("part/msg_*/prt_*.json"))
+
+        # Parts are stored separately at ../../../part/msg_*/prt_*.json
+        storage_root = file_path.parent.parent  # .local/share/opencode/storage
+        part_dir = storage_root / "part"
+        part_files: list[Path] = []
+        for msg_file in message_files:
+            msg_id = msg_file.stem
+            msg_part_dir = part_dir / msg_id
+            if msg_part_dir.is_dir():
+                part_files.extend(msg_part_dir.glob("prt_*.json"))
 
         parts_map = self._build_parts_map(part_files)
 
@@ -47,7 +56,7 @@ class OpenCodeParser(BaseParser):
             except (OSError, json.JSONDecodeError):
                 continue
 
-            msg_id = data.get("message_id")
+            msg_id = data.get("messageID") or data.get("message_id")
             if not msg_id:
                 continue
 
