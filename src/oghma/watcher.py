@@ -1,3 +1,4 @@
+import glob
 import logging
 from pathlib import Path
 from typing import Any, cast
@@ -39,19 +40,12 @@ class Watcher:
         files: list[Path] = []
 
         try:
-            base_path = pattern.parent
-            glob_pattern = pattern.name
+            pattern_str = str(pattern)
+            for path_str in glob.glob(pattern_str, recursive=True):
+                path = Path(path_str)
+                files.append(path)
 
-            if "*" in str(base_path):
-                matched_paths = Path(str(base_path)).parent.glob(base_path.name)
-                for matched_dir in matched_paths:
-                    if matched_dir.is_dir():
-                        files.extend(matched_dir.glob(glob_pattern))
-            else:
-                if base_path.exists():
-                    files.extend(base_path.glob(glob_pattern))
-
-            files = [f for f in files if f.is_file() and self._is_allowed(f)]
+            files = [f for f in files if (f.is_file() or f.is_dir()) and self._is_allowed(f)]
         except (OSError, PermissionError):
             logger.warning(f"Failed to expand pattern: {pattern}")
 
