@@ -107,6 +107,26 @@ def status() -> None:
         console.print(f"[red]Error: {e}[/red]")
 
 
+@cli.command("validate-config")
+def validate_config_command() -> None:
+    try:
+        config = load_config()
+        errors = validate_config(config)
+        if errors:
+            console.print("[red]Configuration errors:[/red]")
+            for error in errors:
+                console.print(f"  [red]- {error}[/red]")
+            raise SystemExit(1)
+
+        console.print("[green]Configuration OK[/green]")
+    except FileNotFoundError:
+        console.print("[red]Config not found. Run 'oghma init' first.[/red]")
+        raise SystemExit(1) from None
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise SystemExit(1) from None
+
+
 @cli.command()
 @click.option("--foreground", "-f", is_flag=True, help="Run in foreground (don't daemonize)")
 def start(foreground: bool) -> None:

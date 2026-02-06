@@ -142,6 +142,38 @@ def test_status_shows_info(runner: CliRunner, temp_config: Config, temp_db: Path
             assert "Database Status" in result.output
 
 
+def test_validate_config_ok(runner: CliRunner, temp_config: Config) -> None:
+    """Test validate-config with valid config."""
+    valid_config = Config(
+        {
+            **temp_config,
+            "embedding": {
+                "provider": "openai",
+                "model": "text-embedding-3-small",
+                "dimensions": 1536,
+                "batch_size": 100,
+                "rate_limit_delay": 0.1,
+                "max_retries": 3,
+            },
+        }
+    )
+    with patch("oghma.cli.load_config", return_value=valid_config):
+        result = runner.invoke(cli, ["validate-config"])
+
+        assert result.exit_code == 0
+        assert "Configuration OK" in result.output
+
+
+def test_validate_config_errors(runner: CliRunner) -> None:
+    """Test validate-config with invalid config."""
+    invalid_config = Config({"storage": {"db_path": ""}})
+    with patch("oghma.cli.load_config", return_value=invalid_config):
+        result = runner.invoke(cli, ["validate-config"])
+
+        assert result.exit_code == 1
+        assert "Configuration errors" in result.output
+
+
 def test_status_with_empty_db(runner: CliRunner, temp_config: Config) -> None:
     """Test status when database doesn't exist yet."""
     db_path = Path(temp_config["storage"]["db_path"])
