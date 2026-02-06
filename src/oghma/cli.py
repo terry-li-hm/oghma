@@ -380,8 +380,7 @@ def migrate_embeddings(batch_size: int, dry_run: bool) -> None:
         done_after, total_after = storage.get_embedding_progress()
         if dry_run:
             console.print(
-                f"[yellow]Dry run complete.[/yellow] "
-                f"Would process {result.processed} memories."
+                f"[yellow]Dry run complete.[/yellow] Would process {result.processed} memories."
             )
             return
 
@@ -415,12 +414,14 @@ def migrate_embeddings(batch_size: int, dry_run: bool) -> None:
     show_default=True,
     help="Export by status",
 )
+@click.option("--source-tool", "-t", help="Export only this source tool")
 def export(
     output: str | None,
     format: str,
     group_by: str,
     category: str | None,
     status: str,
+    source_tool: str | None,
 ) -> None:
     """Export memories to files."""
     try:
@@ -434,6 +435,7 @@ def export(
             format=format,
             group_by=group_by,
             status=status,
+            source_tool=source_tool,
         )
         exporter = Exporter(storage, options)
 

@@ -8,3 +8,4 @@
 - Added `--status` filter to `oghma search`.
 - Added `--json` option to `oghma status`.
 - Added `--status` support to `oghma export`.
+- Added `--source-tool` filter to `oghma export`.
