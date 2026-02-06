@@ -74,7 +74,7 @@ Or environment variable: `OGHMA_EXTRACTION_MODEL=google/gemini-3-flash-preview`
 | oghma status | Show daemon and database status |
 | oghma start | Start background daemon |
 | oghma stop | Stop daemon |
-| oghma search "query" | Search memories (--mode keyword/vector/hybrid) |
+| oghma search "query" | Search memories (--mode keyword/vector/hybrid, --category, --status) |
 | oghma export | Export memories to files |
 | oghma migrate-embeddings | Backfill embeddings for existing memories |
 

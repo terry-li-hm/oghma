@@ -190,13 +190,26 @@ def stop() -> None:
 @click.option("--limit", "-n", default=10, help="Max results")
 @click.option("--category", "-c", help="Filter by category")
 @click.option(
+    "--status",
+    type=click.Choice(["active", "archived"]),
+    default="active",
+    show_default=True,
+    help="Filter by status",
+)
+@click.option(
     "--mode",
     type=click.Choice(["keyword", "vector", "hybrid"]),
     default="keyword",
     show_default=True,
     help="Search strategy",
 )
-def search(query: str, limit: int, category: str | None, mode: str) -> None:
+def search(
+    query: str,
+    limit: int,
+    category: str | None,
+    status: str,
+    mode: str,
+) -> None:
     try:
         config = load_config()
         storage = Storage(config=config)
@@ -212,6 +225,7 @@ def search(query: str, limit: int, category: str | None, mode: str) -> None:
             query_embedding=query_embedding,
             limit=limit,
             category=category,
+            status=status,
             search_mode=mode,
         )
 
