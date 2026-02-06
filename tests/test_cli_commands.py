@@ -215,6 +215,29 @@ def test_search_with_category_filter(runner: CliRunner, temp_config: Config, tem
         assert "preference" in result.output.lower()
 
 
+def test_search_with_status_filter(
+    runner: CliRunner, temp_config: Config, temp_db: Path
+) -> None:
+    """Test search with status filter."""
+    from oghma.storage import Storage
+
+    storage = Storage(temp_config["storage"]["db_path"], temp_config)
+    archived = storage.add_memory(
+        content="Archived memory content",
+        category="learning",
+        source_tool="claude_code",
+        source_file="/test/file3.jsonl",
+    )
+    assert archived is not None
+    storage.update_memory_status(archived, "archived")
+
+    with patch("oghma.cli.load_config", return_value=temp_config):
+        result = runner.invoke(cli, ["search", "Archived", "--status", "archived"])
+
+        assert result.exit_code == 0
+        assert "archived" in result.output.lower()
+
+
 def test_search_with_limit(runner: CliRunner, temp_config: Config, temp_db: Path) -> None:
     """Test search with limit option."""
     with patch("oghma.cli.load_config", return_value=temp_config):
