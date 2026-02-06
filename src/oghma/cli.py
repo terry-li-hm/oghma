@@ -408,7 +408,20 @@ def migrate_embeddings(batch_size: int, dry_run: bool) -> None:
     "--group-by", "-g", type=click.Choice(["category", "date", "source"]), default="category"
 )
 @click.option("--category", "-c", help="Export only this category")
-def export(output: str | None, format: str, group_by: str, category: str | None) -> None:
+@click.option(
+    "--status",
+    type=click.Choice(["active", "archived"]),
+    default="active",
+    show_default=True,
+    help="Export by status",
+)
+def export(
+    output: str | None,
+    format: str,
+    group_by: str,
+    category: str | None,
+    status: str,
+) -> None:
     """Export memories to files."""
     try:
         config = load_config()
@@ -416,7 +429,12 @@ def export(output: str | None, format: str, group_by: str, category: str | None)
 
         output_dir = Path(output or config["export"]["output_dir"])
 
-        options = ExportOptions(output_dir=output_dir, format=format, group_by=group_by)
+        options = ExportOptions(
+            output_dir=output_dir,
+            format=format,
+            group_by=group_by,
+            status=status,
+        )
         exporter = Exporter(storage, options)
 
         if category:

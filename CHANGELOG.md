@@ -7,3 +7,4 @@
 - Added `oghma stats` command.
 - Added `--status` filter to `oghma search`.
 - Added `--json` option to `oghma status`.
+- Added `--status` support to `oghma export`.
