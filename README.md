@@ -14,6 +14,7 @@ pip install oghma
 oghma init
 oghma start
 oghma search "python typing"
+oghma search "memory" --tool codex --category workflow
 oghma export -o ./memories
 ```
 
@@ -71,7 +72,7 @@ Native Claude Code integration via MCP. Add to `~/.claude.json`:
 
 Available tools:
 - `oghma_search`: Search memories by keyword (supports category/source_tool filters)
-- `ogma_get`: Get a memory by ID
+- `oghma_get`: Get a memory by ID
 - `oghma_stats`: Get memory database statistics
 - `oghma_categories`: List categories with memory counts
 
