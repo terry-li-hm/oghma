@@ -81,8 +81,9 @@ DEFAULT_CONFIG: Config = {
     "extraction": {
         "model": "google/gemini-3-flash-preview",
         "max_content_chars": 4000,
-        "categories": ["learning", "preference", "project_context", "gotcha", "workflow"],
+        "categories": ["learning", "preference", "project_context", "gotcha", "workflow", "promoted"],
         "confidence_threshold": 0.5,
+        "skip_content_patterns": ["MEMORY.md", "write_memory", "edit_memory"],
     },
     "embedding": {
         "provider": "openai",

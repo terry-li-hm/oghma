@@ -48,7 +48,7 @@ def oghma_search(
     category: str | None = None,
     source_tool: str | None = None,
     limit: int = 10,
-    search_mode: str = "keyword",
+    search_mode: str = "hybrid",
 ) -> list[MemoryRecord]:
     """Search memories by keyword, vector, or hybrid mode."""
     if limit < 1:

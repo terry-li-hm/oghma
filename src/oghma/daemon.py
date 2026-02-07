@@ -106,6 +106,15 @@ class Daemon:
 
             messages = parser.parse(file_path)
 
+            # Filter out messages that are just MEMORY.md writes to avoid
+            # redundant extraction (those insights are already persisted)
+            skip_patterns = self.config.get("extraction", {}).get("skip_content_patterns", [])
+            if skip_patterns:
+                messages = [
+                    m for m in messages
+                    if not any(pat in m.content for pat in skip_patterns)
+                ]
+
             if not self.watcher.should_process(messages):
                 logger.debug(f"Skipping {file_path}: not enough messages")
                 return

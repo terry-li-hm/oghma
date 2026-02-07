@@ -25,7 +25,7 @@ class Extractor:
     MAX_RETRIES = 3
     BASE_RETRY_DELAY = 1.0
 
-    CATEGORIES = ["learning", "preference", "project_context", "gotcha", "workflow"]
+    CATEGORIES = ["learning", "preference", "project_context", "gotcha", "workflow", "promoted"]
 
     # Models that require OpenRouter
     OPENROUTER_PREFIXES = ("google/", "anthropic/", "meta-llama/", "deepseek/", "moonshotai/")
