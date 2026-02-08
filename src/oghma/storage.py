@@ -5,6 +5,7 @@ import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
+
 from typing_extensions import TypedDict
 
 from oghma.config import Config, get_db_path
@@ -745,6 +746,43 @@ class Storage:
                 (source_path, memories_extracted, tokens_used, duration_ms, error),
             )
             return cursor.lastrowid or 0
+
+    def get_all_embeddings(self, status: str = "active") -> dict[int, bytes]:
+        """Return {memory_id: raw_embedding_bytes} for all memories with embeddings."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT v.memory_id, v.embedding
+                FROM memories_vec v
+                JOIN memories m ON m.id = v.memory_id
+                WHERE m.status = ?
+                """,
+                (status,),
+            )
+            return {row[0]: row[1] for row in cursor.fetchall()}
+
+    def delete_memories_batch(self, memory_ids: list[int]) -> int:
+        """Delete memories and their FTS/vec entries. Returns count deleted."""
+        if not memory_ids:
+            return 0
+        total_deleted = 0
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            for i in range(0, len(memory_ids), 500):
+                chunk = memory_ids[i : i + 500]
+                placeholders = ",".join("?" * len(chunk))
+                if self._vector_search_enabled:
+                    cursor.execute(
+                        f"DELETE FROM memories_vec WHERE memory_id IN ({placeholders})",
+                        chunk,
+                    )
+                cursor.execute(
+                    f"DELETE FROM memories WHERE id IN ({placeholders})",
+                    chunk,
+                )
+                total_deleted += cursor.rowcount
+        return total_deleted
 
     def get_memory_count(self, status: str = "active") -> int:
         with self._get_connection() as conn:

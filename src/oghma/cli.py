@@ -279,6 +279,92 @@ def stats(status: str) -> None:
 
 
 @cli.command()
+@click.option(
+    "--threshold",
+    "-t",
+    default=0.92,
+    show_default=True,
+    help="Cosine similarity threshold (0.0-1.0)",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=True,
+    show_default=True,
+    help="Preview without deleting",
+)
+@click.option(
+    "--execute",
+    is_flag=True,
+    help="Actually delete duplicates (overrides --dry-run)",
+)
+@click.option("--category", "-c", help="Only dedup within this category")
+@click.option("--batch-size", default=500, show_default=True, help="Processing batch size")
+def dedup(
+    threshold: float,
+    dry_run: bool,
+    execute: bool,
+    category: str | None,
+    batch_size: int,
+) -> None:
+    """Find and remove semantically duplicate memories."""
+    try:
+        config = load_config()
+        storage = Storage(config=config)
+
+        if execute:
+            dry_run = False
+
+        mode = "[yellow]DRY RUN[/yellow]" if dry_run else "[red]LIVE[/red]"
+        console.print(f"[blue]Running semantic dedup ({mode}, threshold={threshold})...[/blue]")
+
+        from oghma.dedup import run_dedup
+
+        result = run_dedup(
+            storage,
+            threshold=threshold,
+            category=category,
+            dry_run=dry_run,
+            batch_size=batch_size,
+        )
+
+        table = Table(title="Dedup Results", show_header=True, header_style="bold magenta")
+        table.add_column("Metric", style="cyan")
+        table.add_column("Value", style="green")
+        table.add_row("Total memories", str(result.total_memories))
+        table.add_row("Memories with embeddings", str(result.embedded_memories))
+        table.add_row("Duplicate clusters found", str(result.clusters_found))
+        table.add_row("Duplicates to remove", str(result.duplicates_removed))
+        table.add_row(
+            "Memories kept",
+            str(result.embedded_memories - result.duplicates_removed),
+        )
+        console.print(table)
+
+        if dry_run and result.duplicates_removed > 0:
+            console.print(
+                "\n[yellow]This was a dry run. "
+                "Use --execute to actually delete duplicates.[/yellow]"
+            )
+        elif not dry_run and result.duplicates_removed > 0:
+            console.print(
+                f"\n[green]Deleted {result.duplicates_removed} duplicate memories.[/green]"
+            )
+        else:
+            console.print("\n[green]No duplicates found above threshold.[/green]")
+
+    except ImportError as e:
+        console.print(f"[red]{e}[/red]")
+        raise SystemExit(1) from None
+    except FileNotFoundError:
+        console.print("[red]Config not found. Run 'oghma init' first.[/red]")
+        raise SystemExit(1) from None
+    except Exception as e:
+        console.print(f"[red]Error during dedup: {e}[/red]")
+        raise SystemExit(1) from None
+
+
+@cli.command()
 @click.argument("query")
 @click.option("--limit", "-n", default=10, help="Max results")
 @click.option("--category", "-c", help="Filter by category")
