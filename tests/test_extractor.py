@@ -174,8 +174,8 @@ class TestExtractor:
         mock_openai_class.return_value = mock_client
 
         mock_response_data = [
-            {"content": "Valid memory", "category": "learning", "confidence": 0.8},
-            {"content": "Low confidence", "category": "preference", "confidence": 0.3},
+            {"content": "sqlite-vec requires enable_load_extension before load", "category": "learning", "confidence": 0.8},
+            {"content": "Low confidence memory about something vague", "category": "preference", "confidence": 0.3},
         ]
 
         mock_response = MagicMock()
@@ -187,7 +187,7 @@ class TestExtractor:
         memories = extractor.extract(sample_messages, "claude_code")
 
         assert len(memories) == 1
-        assert memories[0].content == "Valid memory"
+        assert "sqlite-vec" in memories[0].content
 
     @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
     @patch("oghma.extractor.OpenAI")
@@ -200,8 +200,8 @@ class TestExtractor:
         mock_openai_class.return_value = mock_client
 
         mock_response_data = [
-            {"content": "High", "category": "learning", "confidence": 0.95},
-            {"content": "Low", "category": "preference", "confidence": 0.85},
+            {"content": "OpenAI embedding API requires dimensions param for ada-003", "category": "learning", "confidence": 0.95},
+            {"content": "FTS5 query escaping prevents syntax errors in search", "category": "preference", "confidence": 0.85},
         ]
 
         mock_response = MagicMock()
@@ -213,7 +213,7 @@ class TestExtractor:
         memories = extractor.extract(sample_messages, "claude_code")
 
         assert len(memories) == 1
-        assert memories[0].content == "High"
+        assert "OpenAI" in memories[0].content
 
     @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
     @patch("oghma.extractor.OpenAI")
@@ -225,8 +225,8 @@ class TestExtractor:
         mock_openai_class.return_value = mock_client
 
         mock_response_data = [
-            {"content": "Valid memory", "category": "learning", "confidence": 0.8},
-            {"content": "Invalid category", "category": "random", "confidence": 0.9},
+            {"content": "ruff check --fix auto-corrects import ordering issues", "category": "learning", "confidence": 0.8},
+            {"content": "Invalid category memory about something", "category": "random", "confidence": 0.9},
         ]
 
         mock_response = MagicMock()
@@ -238,7 +238,7 @@ class TestExtractor:
         memories = extractor.extract(sample_messages, "claude_code")
 
         assert len(memories) == 1
-        assert memories[0].content == "Valid memory"
+        assert "ruff" in memories[0].content
 
     @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
     @patch("oghma.extractor.OpenAI")
@@ -250,7 +250,7 @@ class TestExtractor:
         mock_client = MagicMock()
         mock_openai_class.return_value = mock_client
 
-        mock_response_data = [{"content": "Test memory", "category": "learning", "confidence": 0.8}]
+        mock_response_data = [{"content": "pytest --tb=short gives concise tracebacks for faster debugging", "category": "learning", "confidence": 0.8}]
 
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
@@ -355,7 +355,7 @@ class TestExtractor:
         assert "Assistant: Use pytest" in prompt
         assert "learning" in prompt
         assert "preference" in prompt
-        assert "JSON format" in prompt
+        assert "JSON" in prompt
 
     @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
     def test_build_prompt_uses_config_categories(self, mock_config):
@@ -373,3 +373,58 @@ class TestExtractor:
         assert "- learning" in prompt
         assert "- custom" in prompt
         assert "preference" not in prompt
+
+    @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
+    def test_is_noise_filters_short_content(self, mock_config):
+        extractor = Extractor(config=mock_config)
+        from oghma.extractor import Memory
+
+        assert extractor._is_noise(Memory(content="Too short", category="learning"))
+        assert not extractor._is_noise(
+            Memory(content="sqlite-vec requires enable_load_extension before load", category="gotcha")
+        )
+
+    @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
+    def test_is_noise_filters_meta_references(self, mock_config):
+        extractor = Extractor(config=mock_config)
+        from oghma.extractor import Memory
+
+        assert extractor._is_noise(
+            Memory(content="CLAUDE.md is version controlled in ~/agent-config", category="workflow")
+        )
+        assert extractor._is_noise(
+            Memory(content="The user's MEMORY.md contains sqlite-vec gotchas", category="gotcha")
+        )
+
+    @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
+    def test_is_noise_filters_shallow_user_observations(self, mock_config):
+        extractor = Extractor(config=mock_config)
+        from oghma.extractor import Memory
+
+        # Short "The user is..." should be filtered
+        assert extractor._is_noise(
+            Memory(content="The user is located in Hong Kong", category="preference")
+        )
+        # Long "The user is..." with genuine detail should survive
+        assert not extractor._is_noise(
+            Memory(
+                content="The user is experiencing timeouts when OpenCode processes small edits "
+                "under 25 lines — the workaround is to use direct file edits instead",
+                category="gotcha",
+            )
+        )
+
+    @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
+    def test_build_prompt_strips_system_reminders(self, mock_config):
+        extractor = Extractor(config=mock_config)
+        messages = [
+            Message(
+                role="user",
+                content="How do I test? <system-reminder>You must do X</system-reminder>",
+            ),
+            Message(role="assistant", content="Use pytest"),
+        ]
+
+        prompt = extractor._build_prompt(messages)
+        assert "system-reminder" not in prompt
+        assert "How do I test?" in prompt

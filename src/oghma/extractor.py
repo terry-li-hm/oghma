@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import time
 from dataclasses import dataclass
 
@@ -10,6 +11,25 @@ from oghma.config import Config
 from oghma.parsers import Message
 
 logger = logging.getLogger(__name__)
+
+# Regex patterns for post-extraction noise filtering
+_NOISE_PATTERNS = [
+    # Meta-references to config/memory files
+    re.compile(r"CLAUDE\.md|MEMORY\.md|memory file|auto.?memory", re.I),
+    # Shallow "The user is/has/uses" observations under 80 chars
+    re.compile(
+        r"^The user (is |has |wants to |prefers |uses |works |likes |located |transitioning )"
+    ),
+    # Re-extracted system instructions
+    re.compile(r"must be auto.?commit|after editing.*(commit|push)|skill.?sync", re.I),
+    # Meta-observations about the conversation itself
+    re.compile(r"^The (assistant|AI|system|conversation) ", re.I),
+    # Narrating what a config file contains
+    re.compile(r"^The .*(config|settings|configuration) (file |contains |specifies )", re.I),
+]
+
+# Strip these from message content before sending to LLM
+_STRIP_RE = re.compile(r"<system-reminder>.*?</system-reminder>", re.DOTALL)
 
 
 @dataclass
@@ -71,6 +91,7 @@ class Extractor:
                     for m in memories
                     if m.category in self.categories
                     and m.confidence >= self.confidence_threshold
+                    and not self._is_noise(m)
                 ]
 
                 logger.info(
@@ -124,27 +145,67 @@ class Extractor:
         messages_text = ""
         for msg in messages[:100]:
             role_label = "User" if msg.role == "user" else "Assistant"
-            messages_text += f"{role_label}: {msg.content}\n\n"
+            content = _STRIP_RE.sub("", msg.content).strip()
+            if content:
+                messages_text += f"{role_label}: {content}\n\n"
 
         messages_text = messages_text[: self.max_chars]
 
         categories_desc = "\n".join(f"- {cat}" for cat in self.categories)
 
         prompt = (
-            "You are a memory extraction system. "
-            "Analyze this conversation and extract key memories.\n\n"
+            "You are a memory extraction system for an AI coding assistant. "
+            "Extract ONLY genuinely useful memories that would help in future sessions.\n\n"
             f"Categories:\n{categories_desc}\n\n"
+            "EXTRACT (high value):\n"
+            "- Technical discoveries: bugs found, workarounds, API quirks, library gotchas\n"
+            "- Tool-specific learnings: commands that worked, configurations that solved problems\n"
+            "- Project decisions: architecture choices, why X was chosen over Y\n"
+            "- Workflow patterns: what sequence of steps solved a problem\n"
+            "- Error solutions: what error occurred and how it was fixed\n\n"
+            "DO NOT EXTRACT (noise):\n"
+            "- What the user's setup/environment is (timezone, OS, tools installed)\n"
+            "- What config files contain or what instructions say\n"
+            "- Observations like 'The user prefers X' or 'The user is working on Y'\n"
+            "- Information that comes from a system prompt, CLAUDE.md, or README\n"
+            "- What the assistant said or did (focus on discoveries, not narration)\n"
+            "- Trivially obvious facts ('The project uses Python')\n\n"
+            "Good examples:\n"
+            '  {"content": "sqlite-vec requires enable_load_extension(True) BEFORE '
+            'sqlite_vec.load(conn)", "category": "gotcha", "confidence": 0.95}\n'
+            '  {"content": "Gmail MCP can send but cannot reply to threads — no '
+            'thread ID support", "category": "gotcha", "confidence": 0.9}\n'
+            '  {"content": "OpenCode times out on small edits (<25 lines); reserve '
+            'for bulk work", "category": "learning", "confidence": 0.9}\n\n'
+            "Bad examples (DO NOT extract these):\n"
+            '  {"content": "The user is located in Hong Kong"} — setup info, not a learning\n'
+            '  {"content": "The user prefers pnpm"} — config fact, not actionable\n'
+            '  {"content": "The project uses SQLite for storage"} — trivially obvious\n'
+            '  {"content": "CLAUDE.md must be auto-committed"} — system instruction\n\n'
             f"Conversation:\n{messages_text}\n\n"
-            "Extract memories in this JSON format:\n"
-            '[  {"content": "...", "category": "...", "confidence": 0.0-1.0},\n'
-            "  ...\n"
-            "]\n\n"
-            "Only extract clear, specific memories. Skip vague or trivial content.\n"
-            "Return empty array [] if no significant memories found.\n"
-            "Remember: respond with valid JSON only, no markdown formatting."
+            "Extract memories as JSON. Return [] if nothing worth remembering.\n"
+            '[  {"content": "...", "category": "...", "confidence": 0.0-1.0}  ]\n'
+            "Respond with valid JSON only, no markdown."
         )
 
         return prompt
+
+    def _is_noise(self, memory: Memory) -> bool:
+        """Check if a memory matches known noise patterns."""
+        content = memory.content
+        # Too short to be useful
+        if len(content) < 30:
+            return True
+        # Check regex noise patterns
+        for pattern in _NOISE_PATTERNS:
+            if pattern.search(content):
+                # "The user is/has/uses..." is noise UNLESS the content is long
+                # enough to contain a genuine insight (>100 chars)
+                if pattern.pattern.startswith("^The user") and len(content) > 100:
+                    continue
+                logger.debug(f"Filtered noise: {content[:80]}")
+                return True
+        return False
 
     def _parse_response(self, response_text: str) -> list[Memory]:
         """Parse LLM response into Memory objects."""
