@@ -1,4 +1,4 @@
-"""Semantic deduplication of memories using embedding cosine similarity."""
+"""Semantic deduplication and noise purging for memories."""
 
 import logging
 import struct
@@ -173,5 +173,55 @@ def run_dedup(
     if not dry_run and result.removed_ids:
         deleted = storage.delete_memories_batch(result.removed_ids)
         logger.info(f"Deleted {deleted} duplicate memories")
+
+    return result
+
+
+@dataclass
+class PurgeResult:
+    total_memories: int = 0
+    noise_found: int = 0
+    removed_ids: list[int] = field(default_factory=list)
+    by_reason: dict[str, int] = field(default_factory=dict)
+
+
+def find_noise(storage: Storage) -> PurgeResult:
+    """Scan all active memories against noise patterns from extractor."""
+    from oghma.extractor import _NOISE_PATTERNS
+
+    result = PurgeResult()
+    memories = storage.get_all_memories()
+    result.total_memories = len(memories)
+
+    for m in memories:
+        content = m["content"]
+        reason = _check_noise(content, _NOISE_PATTERNS)
+        if reason:
+            result.removed_ids.append(m["id"])
+            result.by_reason[reason] = result.by_reason.get(reason, 0) + 1
+
+    result.noise_found = len(result.removed_ids)
+    return result
+
+
+def _check_noise(content: str, patterns: list) -> str | None:
+    """Check if content matches a noise pattern. Returns reason or None."""
+    if len(content) < 30:
+        return "too_short"
+    for pattern in patterns:
+        if pattern.search(content):
+            if pattern.pattern.startswith("^The user") and len(content) > 100:
+                continue
+            return pattern.pattern[:40]
+    return None
+
+
+def run_purge(storage: Storage, dry_run: bool = True) -> PurgeResult:
+    """Find and optionally remove noisy memories."""
+    result = find_noise(storage)
+
+    if not dry_run and result.removed_ids:
+        deleted = storage.delete_memories_batch(result.removed_ids)
+        logger.info(f"Purged {deleted} noisy memories")
 
     return result

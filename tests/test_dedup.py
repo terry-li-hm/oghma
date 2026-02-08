@@ -308,3 +308,116 @@ class TestGetAllEmbeddings:
 
         embeddings = storage.get_all_embeddings()
         assert len(embeddings) == 1
+
+
+class TestFindNoise:
+    def test_finds_short_memories(self, storage):
+        from oghma.dedup import find_noise
+
+        storage.add_memory(
+            content="Too short",
+            category="workflow",
+            source_tool="test",
+            source_file="test1.jsonl",
+        )
+        storage.add_memory(
+            content="sqlite-vec requires enable_load_extension before calling load",
+            category="gotcha",
+            source_tool="test",
+            source_file="test2.jsonl",
+        )
+
+        result = find_noise(storage)
+        assert result.noise_found == 1
+        assert "too_short" in result.by_reason
+
+    def test_finds_meta_references(self, storage):
+        from oghma.dedup import find_noise
+
+        storage.add_memory(
+            content="CLAUDE.md is version controlled in ~/agent-config repo",
+            category="workflow",
+            source_tool="test",
+            source_file="test1.jsonl",
+        )
+        storage.add_memory(
+            content="The user's MEMORY.md file already contains sqlite-vec gotchas",
+            category="gotcha",
+            source_tool="test",
+            source_file="test2.jsonl",
+        )
+        storage.add_memory(
+            content="ruff check --fix auto-corrects import ordering issues in Python",
+            category="learning",
+            source_tool="test",
+            source_file="test3.jsonl",
+        )
+
+        result = find_noise(storage)
+        assert result.noise_found == 2
+
+    def test_finds_shallow_user_obs(self, storage):
+        from oghma.dedup import find_noise
+
+        storage.add_memory(
+            content="The user is located in Hong Kong",
+            category="preference",
+            source_tool="test",
+            source_file="test1.jsonl",
+        )
+        # Long "The user..." should survive
+        storage.add_memory(
+            content="The user is experiencing timeouts when OpenCode processes small edits "
+            "under 25 lines — the workaround is to use direct file edits instead of delegation",
+            category="gotcha",
+            source_tool="test",
+            source_file="test2.jsonl",
+        )
+
+        result = find_noise(storage)
+        assert result.noise_found == 1
+
+
+class TestRunPurge:
+    def test_dry_run_preserves(self, storage):
+        from oghma.dedup import run_purge
+
+        storage.add_memory(
+            content="Too short",
+            category="workflow",
+            source_tool="test",
+            source_file="test1.jsonl",
+        )
+        storage.add_memory(
+            content="sqlite-vec requires enable_load_extension before load call",
+            category="gotcha",
+            source_tool="test",
+            source_file="test2.jsonl",
+        )
+
+        before = storage.get_memory_count()
+        result = run_purge(storage, dry_run=True)
+        after = storage.get_memory_count()
+        assert before == after
+        assert result.noise_found == 1
+
+    def test_execute_deletes(self, storage):
+        from oghma.dedup import run_purge
+
+        storage.add_memory(
+            content="Too short",
+            category="workflow",
+            source_tool="test",
+            source_file="test1.jsonl",
+        )
+        storage.add_memory(
+            content="sqlite-vec requires enable_load_extension before load call",
+            category="gotcha",
+            source_tool="test",
+            source_file="test2.jsonl",
+        )
+
+        result = run_purge(storage, dry_run=False)
+        after = storage.get_memory_count()
+        assert after == 1
+        assert result.noise_found == 1

@@ -364,6 +364,75 @@ def dedup(
         raise SystemExit(1) from None
 
 
+@cli.command("purge-noise")
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=True,
+    show_default=True,
+    help="Preview without deleting",
+)
+@click.option(
+    "--execute",
+    is_flag=True,
+    help="Actually delete noisy memories (overrides --dry-run)",
+)
+def purge_noise(dry_run: bool, execute: bool) -> None:
+    """Remove memories matching known noise patterns."""
+    try:
+        config = load_config()
+        storage = Storage(config=config)
+
+        if execute:
+            dry_run = False
+
+        mode = "[yellow]DRY RUN[/yellow]" if dry_run else "[red]LIVE[/red]"
+        console.print(f"[blue]Running noise purge ({mode})...[/blue]")
+
+        from oghma.dedup import run_purge
+
+        result = run_purge(storage, dry_run=dry_run)
+
+        table = Table(title="Noise Purge Results", show_header=True, header_style="bold magenta")
+        table.add_column("Metric", style="cyan")
+        table.add_column("Value", style="green")
+        table.add_row("Total memories", str(result.total_memories))
+        table.add_row("Noise matches", str(result.noise_found))
+        table.add_row(
+            "Would keep", str(result.total_memories - result.noise_found)
+        )
+        console.print(table)
+
+        if result.by_reason:
+            reason_table = Table(
+                title="Matches by Pattern", show_header=True, header_style="bold magenta"
+            )
+            reason_table.add_column("Pattern", style="cyan")
+            reason_table.add_column("Count", style="green")
+            for reason, count in sorted(result.by_reason.items(), key=lambda x: -x[1]):
+                reason_table.add_row(reason, str(count))
+            console.print(reason_table)
+
+        if dry_run and result.noise_found > 0:
+            console.print(
+                "\n[yellow]This was a dry run. "
+                "Use --execute to actually delete noisy memories.[/yellow]"
+            )
+        elif not dry_run and result.noise_found > 0:
+            console.print(
+                f"\n[green]Purged {result.noise_found} noisy memories.[/green]"
+            )
+        else:
+            console.print("\n[green]No noisy memories found.[/green]")
+
+    except FileNotFoundError:
+        console.print("[red]Config not found. Run 'oghma init' first.[/red]")
+        raise SystemExit(1) from None
+    except Exception as e:
+        console.print(f"[red]Error during purge: {e}[/red]")
+        raise SystemExit(1) from None
+
+
 @cli.command()
 @click.argument("query")
 @click.option("--limit", "-n", default=10, help="Max results")
