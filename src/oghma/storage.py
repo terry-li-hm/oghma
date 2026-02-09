@@ -450,6 +450,53 @@ class Storage:
             )
             return True
 
+    def find_similar_memory(
+        self,
+        embedding: list[float],
+        threshold: float = 0.92,
+        status: str = "active",
+    ) -> tuple[int, float] | None:
+        """Check if a semantically similar memory already exists.
+
+        Uses vec0 MATCH k=1 to find nearest neighbor, then converts
+        L2 distance to cosine similarity (assumes normalized vectors).
+
+        Returns (memory_id, cosine_similarity) if above threshold, else None.
+        """
+        if not self._vector_search_enabled:
+            return None
+
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            vec_query = self._serialize_embedding(embedding)
+            try:
+                cursor.execute(
+                    """
+                    SELECT v.memory_id, v.distance
+                    FROM memories_vec v
+                    JOIN memories m ON m.id = v.memory_id
+                    WHERE v.embedding MATCH ? AND k = ?
+                      AND m.status = ?
+                    ORDER BY v.distance
+                    LIMIT 1
+                    """,
+                    (vec_query, 1, status),
+                )
+                row = cursor.fetchone()
+                if row is None:
+                    return None
+
+                memory_id = row[0]
+                l2_distance = row[1]
+                cosine_similarity = 1.0 - (l2_distance**2 / 2.0)
+
+                if cosine_similarity >= threshold:
+                    return (memory_id, cosine_similarity)
+                return None
+            except Exception:
+                logger.debug("find_similar_memory query failed", exc_info=True)
+                return None
+
     def get_memories_without_embeddings(self, limit: int = 100) -> list[MemoryRecord]:
         with self._get_connection() as conn:
             cursor = conn.cursor()

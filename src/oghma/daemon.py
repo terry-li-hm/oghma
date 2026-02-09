@@ -143,9 +143,37 @@ class Daemon:
             size = file_path.stat().st_size
             source_session = self._get_session_id(file_path)
 
+            # Embed first, then check for duplicates before inserting
+            if self.embedder:
+                try:
+                    contents = [m.content for m in memories]
+                    vectors = self.embedder.embed_batch(contents)
+                except Exception as e:
+                    logger.warning(f"Failed to embed memories from {file_path}: {e}")
+                    vectors = [None] * len(memories)
+            else:
+                vectors = [None] * len(memories)
+
+            dedup_threshold = self.config.get("extraction", {}).get(
+                "dedup_threshold", 0.92
+            )
+
             new_memory_ids = []
-            new_memory_contents = []
-            for memory in memories:
+            skipped_dupes = 0
+            for memory, vector in zip(memories, vectors):
+                if vector is not None:
+                    existing = self.storage.find_similar_memory(
+                        vector, threshold=dedup_threshold
+                    )
+                    if existing:
+                        existing_id, similarity = existing
+                        logger.debug(
+                            f"Skipping duplicate (sim={similarity:.3f} "
+                            f"with id={existing_id}): {memory.content[:80]}"
+                        )
+                        skipped_dupes += 1
+                        continue
+
                 memory_id = self.storage.add_memory(
                     content=memory.content,
                     category=memory.category,
@@ -153,19 +181,13 @@ class Daemon:
                     source_file=str(file_path),
                     source_session=source_session,
                     confidence=memory.confidence,
+                    embedding=vector,
                 )
                 if memory_id is not None:
                     new_memory_ids.append(memory_id)
-                    new_memory_contents.append(memory.content)
 
-            if self.embedder and new_memory_contents:
-                try:
-                    vectors = self.embedder.embed_batch(new_memory_contents)
-                    for memory_id, vector in zip(new_memory_ids, vectors):
-                        self.storage.upsert_memory_embedding(memory_id, vector)
-                    logger.info(f"Embedded {len(new_memory_ids)} memories from {file_path}")
-                except Exception as e:
-                    logger.warning(f"Failed to embed memories from {file_path}: {e}")
+            if skipped_dupes:
+                logger.info(f"Skipped {skipped_dupes} duplicate memories from {file_path}")
 
             self.storage.update_extraction_state(str(file_path), mtime, size, len(messages))
 

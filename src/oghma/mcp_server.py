@@ -122,21 +122,40 @@ def oghma_add(
         raise ValueError(f"category must be one of: {valid_categories}")
 
     storage = _get_storage()
+
+    # Preventive dedup: embed first, check similarity, then insert
+    vector = None
+    embedder = _get_embedder()
+    if embedder:
+        try:
+            vector = embedder.embed(content)
+            threshold = _get_config().get("extraction", {}).get("dedup_threshold", 0.92)
+            existing = storage.find_similar_memory(vector, threshold=threshold)
+            if existing:
+                existing_id, similarity = existing
+                existing_memory = storage.get_memory_by_id(existing_id)
+                return {
+                    "id": None,
+                    "status": "duplicate",
+                    "similar_to": existing_id,
+                    "similarity": round(similarity, 3),
+                    "existing_content": (
+                        existing_memory["content"] if existing_memory else None
+                    ),
+                    "content": content,
+                    "category": category,
+                }
+        except Exception:
+            pass
+
     memory_id = storage.add_memory(
         content=content,
         category=category,
         source_tool=source_tool,
         source_file="mcp_direct",
         confidence=confidence,
+        embedding=vector,
     )
-
-    embedder = _get_embedder()
-    if embedder and memory_id:
-        try:
-            vector = embedder.embed(content)
-            storage.upsert_memory_embedding(memory_id, vector)
-        except Exception:
-            pass
 
     return {"id": memory_id, "status": "created", "content": content, "category": category}
 

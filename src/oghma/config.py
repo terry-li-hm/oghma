@@ -26,6 +26,7 @@ class ExtractionConfig(TypedDict):
     max_content_chars: int
     categories: list[str]
     confidence_threshold: float
+    dedup_threshold: float
 
 
 class ExportConfig(TypedDict):
@@ -83,6 +84,7 @@ DEFAULT_CONFIG: Config = {
         "max_content_chars": 4000,
         "categories": ["learning", "preference", "project_context", "gotcha", "workflow", "promoted"],
         "confidence_threshold": 0.5,
+        "dedup_threshold": 0.92,
         "skip_content_patterns": ["MEMORY.md", "write_memory", "edit_memory"],
     },
     "embedding": {
@@ -180,6 +182,7 @@ def _apply_env_overrides(config: Config) -> Config:
         "OGHMA_EXTRACTION_MAX_CONTENT_CHARS": ("extraction", "max_content_chars"),
         "OGHMA_EXTRACTION_CATEGORIES": ("extraction", "categories"),
         "OGHMA_EXTRACTION_CONFIDENCE_THRESHOLD": ("extraction", "confidence_threshold"),
+        "OGHMA_DEDUP_THRESHOLD": ("extraction", "dedup_threshold"),
         "OGHMA_EMBEDDING_PROVIDER": ("embedding", "provider"),
         "OGHMA_EMBEDDING_MODEL": ("embedding", "model"),
         "OGHMA_EMBEDDING_DIMENSIONS": ("embedding", "dimensions"),
@@ -206,7 +209,7 @@ def _apply_env_overrides(config: Config) -> Config:
             elif key in ["categories"]:
                 categories = [item.strip() for item in value.split(",") if item.strip()]
                 config[section][key] = categories
-            elif key in ["confidence_threshold", "rate_limit_delay"]:
+            elif key in ["confidence_threshold", "dedup_threshold", "rate_limit_delay"]:
                 config[section][key] = float(value)
             else:
                 config[section][key] = value

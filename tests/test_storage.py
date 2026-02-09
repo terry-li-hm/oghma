@@ -412,3 +412,62 @@ def test_dedup_different_categories_rejected(storage):
     assert memory_id_2 is None  # Content-only dedup rejects duplicates
 
     assert storage.get_memory_count() == 1
+
+
+def _make_embedding(base: list[float], dimensions: int = 1536) -> list[float]:
+    emb = (base * ((dimensions // len(base)) + 1))[:dimensions]
+    return emb
+
+
+def _similar_embedding(
+    base: list[float], noise: float = 0.01, dimensions: int = 1536
+) -> list[float]:
+    import random
+
+    random.seed(42)
+    emb = _make_embedding(base, dimensions)
+    return [v + random.uniform(-noise, noise) for v in emb]
+
+
+def test_find_similar_memory_finds_match(storage):
+    base = [0.1, 0.2, 0.3, 0.4, 0.5]
+    emb1 = _make_embedding(base)
+    storage.add_memory(
+        content="sqlite-vec requires enable_load_extension before load",
+        category="gotcha",
+        source_tool="test",
+        source_file="test1.jsonl",
+        embedding=emb1,
+    )
+
+    similar_emb = _similar_embedding(base, noise=0.001)
+    result = storage.find_similar_memory(similar_emb, threshold=0.90)
+    assert result is not None
+    memory_id, similarity = result
+    assert similarity >= 0.90
+
+
+def test_find_similar_memory_no_match_for_different(storage):
+    emb1 = _make_embedding([0.1, 0.2, 0.3])
+    storage.add_memory(
+        content="Memory about topic A with enough length to pass filters",
+        category="learning",
+        source_tool="test",
+        source_file="test1.jsonl",
+        embedding=emb1,
+    )
+
+    different_emb = _make_embedding([0.9, -0.5, 0.1])
+    result = storage.find_similar_memory(different_emb, threshold=0.92)
+    assert result is None
+
+
+def test_find_similar_memory_none_when_empty(storage):
+    result = storage.find_similar_memory([0.1] * 1536, threshold=0.92)
+    assert result is None
+
+
+def test_find_similar_memory_none_when_vec_disabled(storage):
+    storage._vector_search_enabled = False
+    result = storage.find_similar_memory([0.1] * 1536, threshold=0.92)
+    assert result is None
