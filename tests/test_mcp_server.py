@@ -84,8 +84,17 @@ def test_lifespan_initializes_writable_storage(
 
 def test_oghma_search_uses_storage_context(monkeypatch: pytest.MonkeyPatch) -> None:
     fake_storage = MagicMock()
-    fake_storage.search_memories.return_value = [{"id": 1, "content": "hit"}]
-    monkeypatch.setattr(mcp_server, "_get_lifespan_context", lambda: {"storage": fake_storage})
+    fake_storage.search_memories_hybrid.return_value = [{"id": 1, "content": "hit"}]
+    monkeypatch.setattr(
+        mcp_server,
+        "_get_lifespan_context",
+        lambda: {"storage": fake_storage},
+    )
+    monkeypatch.setattr(
+        mcp_server,
+        "create_embedder",
+        lambda _: (_ for _ in ()).throw(ValueError("no embedder")),
+    )
 
     results = mcp_server.oghma_search(
         query="hit",
@@ -95,11 +104,13 @@ def test_oghma_search_uses_storage_context(monkeypatch: pytest.MonkeyPatch) -> N
     )
 
     assert results == [{"id": 1, "content": "hit"}]
-    fake_storage.search_memories.assert_called_once_with(
+    fake_storage.search_memories_hybrid.assert_called_once_with(
         query="hit",
+        query_embedding=None,
         category="learning",
         source_tool="claude_code",
         limit=5,
+        search_mode="hybrid",
     )
 
 
