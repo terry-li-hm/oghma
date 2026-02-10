@@ -624,11 +624,23 @@ def export(
 
 
 @cli.command("prune-stale")
-@click.option("--max-age-days", default=90, show_default=True, help="Delete memories older than N days")
-@click.option("--source-tool", "-s", help="Only prune this source (e.g. 'memu_import', 'openclaw')")
-@click.option("--dry-run/--no-dry-run", is_flag=True, default=True, show_default=True, help="Preview without deleting")
-@click.option("--execute", is_flag=True, help="Actually delete stale memories (overrides --dry-run)")
-def prune_stale(max_age_days: int, source_tool: str | None, dry_run: bool, execute: bool) -> None:
+@click.option(
+    "--max-age-days", default=90, show_default=True,
+    help="Delete memories older than N days",
+)
+@click.option("--source-tool", "-s", help="Only prune this source")
+@click.option(
+    "--dry-run/--no-dry-run", is_flag=True, default=True,
+    show_default=True, help="Preview without deleting",
+)
+@click.option(
+    "--execute", is_flag=True,
+    help="Actually delete stale memories (overrides --dry-run)",
+)
+def prune_stale(
+    max_age_days: int, source_tool: str | None,
+    dry_run: bool, execute: bool,
+) -> None:
     """Delete memories older than a given age."""
     try:
         config = load_config()
