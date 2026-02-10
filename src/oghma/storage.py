@@ -733,6 +733,54 @@ class Storage:
             )
             return cursor.rowcount > 0
 
+    def update_memory_category(self, memory_id: int, category: str) -> bool:
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE memories SET category = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (category, memory_id),
+            )
+            return cursor.rowcount > 0
+
+    def count_stale_memories(
+        self, max_age_days: int, source_tool: str | None = None
+    ) -> list[dict[str, Any]]:
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            sql = """
+                SELECT source_tool, category, COUNT(*) as count
+                FROM memories
+                WHERE status = 'active'
+                AND created_at < datetime('now', ?)
+            """
+            params: list[str] = [f"-{max_age_days} days"]
+            if source_tool:
+                sql += " AND source_tool = ?"
+                params.append(source_tool)
+            sql += " GROUP BY source_tool, category ORDER BY count DESC"
+            cursor.execute(sql, params)
+            return [
+                {"source_tool": r[0], "category": r[1], "count": r[2]}
+                for r in cursor.fetchall()
+            ]
+
+    def delete_stale_memories(
+        self, max_age_days: int, source_tool: str | None = None
+    ) -> int:
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            sql = """
+                DELETE FROM memories
+                WHERE status = 'active'
+                AND created_at < datetime('now', ?)
+            """
+            params: list[str] = [f"-{max_age_days} days"]
+            if source_tool:
+                sql += " AND source_tool = ?"
+                params.append(source_tool)
+            cursor.execute(sql, params)
+            return cursor.rowcount
+
     def get_extraction_state(self, source_path: str) -> ExtractionStateRecord | None:
         with self._get_connection() as conn:
             cursor = conn.cursor()

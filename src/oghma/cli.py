@@ -623,5 +623,86 @@ def export(
         raise SystemExit(1) from None
 
 
+@cli.command("prune-stale")
+@click.option("--max-age-days", default=90, show_default=True, help="Delete memories older than N days")
+@click.option("--source-tool", "-s", help="Only prune this source (e.g. 'memu_import', 'openclaw')")
+@click.option("--dry-run/--no-dry-run", is_flag=True, default=True, show_default=True, help="Preview without deleting")
+@click.option("--execute", is_flag=True, help="Actually delete stale memories (overrides --dry-run)")
+def prune_stale(max_age_days: int, source_tool: str | None, dry_run: bool, execute: bool) -> None:
+    """Delete memories older than a given age."""
+    try:
+        config = load_config()
+        storage = Storage(config=config)
+
+        if execute:
+            dry_run = False
+
+        mode = "[yellow]DRY RUN[/yellow]" if dry_run else "[red]LIVE[/red]"
+        console.print(f"[blue]Pruning memories older than {max_age_days} days ({mode})...[/blue]")
+
+        counts = storage.count_stale_memories(max_age_days, source_tool)
+        if not counts:
+            console.print("[green]No stale memories found.[/green]")
+            return
+
+        total = sum(r["count"] for r in counts)
+        table = Table(title="Stale Memories", show_header=True, header_style="bold magenta")
+        table.add_column("Source", style="cyan")
+        table.add_column("Category", style="green")
+        table.add_column("Count", style="yellow")
+        for r in counts:
+            table.add_row(r["source_tool"], r["category"], str(r["count"]))
+        table.add_row("[bold]Total[/bold]", "", f"[bold]{total}[/bold]")
+        console.print(table)
+
+        if dry_run:
+            console.print(
+                "\n[yellow]This was a dry run. Use --execute to actually delete.[/yellow]"
+            )
+        else:
+            deleted = storage.delete_stale_memories(max_age_days, source_tool)
+            console.print(f"\n[green]Deleted {deleted} stale memories.[/green]")
+
+    except FileNotFoundError:
+        console.print("[red]Config not found. Run 'oghma init' first.[/red]")
+        raise SystemExit(1) from None
+    except Exception as e:
+        console.print(f"[red]Error pruning: {e}[/red]")
+        raise SystemExit(1) from None
+
+
+@cli.command()
+@click.argument("memory_id", type=int)
+def promote(memory_id: int) -> None:
+    """Promote a memory to the 'promoted' category."""
+    try:
+        config = load_config()
+        storage = Storage(config=config)
+
+        memory = storage.get_memory_by_id(memory_id)
+        if not memory:
+            console.print(f"[red]Memory #{memory_id} not found.[/red]")
+            raise SystemExit(1)
+
+        old_category = memory["category"]
+        if old_category == "promoted":
+            console.print(f"[yellow]Memory #{memory_id} is already promoted.[/yellow]")
+            return
+
+        storage.update_memory_category(memory_id, "promoted")
+        console.print(f"[green]Promoted memory #{memory_id}:[/green]")
+        console.print(f"  [dim]{old_category}[/dim] -> [bold green]promoted[/bold green]")
+        console.print(f"  {memory['content']}")
+
+    except FileNotFoundError:
+        console.print("[red]Config not found. Run 'oghma init' first.[/red]")
+        raise SystemExit(1) from None
+    except SystemExit:
+        raise
+    except Exception as e:
+        console.print(f"[red]Error promoting memory: {e}[/red]")
+        raise SystemExit(1) from None
+
+
 def main() -> None:
     cli()
