@@ -163,13 +163,18 @@ class Extractor:
             "- Project decisions: architecture choices, why X was chosen over Y\n"
             "- Workflow patterns: what sequence of steps solved a problem\n"
             "- Error solutions: what error occurred and how it was fixed\n\n"
-            "DO NOT EXTRACT (noise):\n"
+            "DO NOT EXTRACT (noise — be strict about this):\n"
             "- What the user's setup/environment is (timezone, OS, tools installed)\n"
             "- What config files contain or what instructions say\n"
-            "- Observations like 'The user prefers X' or 'The user is working on Y'\n"
-            "- Information that comes from a system prompt, CLAUDE.md, or README\n"
+            "- Observations about the user: 'The user prefers X', 'The user is working on Y', "
+            "'The user wants to...', 'The user has...'\n"
+            "- Observations about the assistant: 'The assistant suggested...', 'The AI helped...', "
+            "'The system provided...', 'The conversation covered...'\n"
+            "- Information from system prompts, CLAUDE.md, MEMORY.md, or README files\n"
             "- What the assistant said or did (focus on discoveries, not narration)\n"
-            "- Trivially obvious facts ('The project uses Python')\n\n"
+            "- Trivially obvious facts ('The project uses Python', 'The app uses React')\n"
+            "- Restatements of config: 'auto-memory captures learnings', 'skills must be synced'\n"
+            "- Session logistics: what files were read, what tools were used, what was discussed\n\n"
             "Good examples:\n"
             '  {"content": "sqlite-vec requires enable_load_extension(True) BEFORE '
             'sqlite_vec.load(conn)", "category": "gotcha", "confidence": 0.95}\n'
@@ -180,8 +185,12 @@ class Extractor:
             "Bad examples (DO NOT extract these):\n"
             '  {"content": "The user is located in Hong Kong"} — setup info, not a learning\n'
             '  {"content": "The user prefers pnpm"} — config fact, not actionable\n'
+            '  {"content": "The user wants to improve extraction quality"} — narrating the session\n'
             '  {"content": "The project uses SQLite for storage"} — trivially obvious\n'
-            '  {"content": "CLAUDE.md must be auto-committed"} — system instruction\n\n'
+            '  {"content": "CLAUDE.md must be auto-committed"} — system instruction\n'
+            '  {"content": "The assistant helped debug the API issue"} — narrating assistant actions\n'
+            '  {"content": "Non-obvious learnings should be captured to skills"} — restating config\n'
+            '  {"content": "The conversation covered Oghma maintenance"} — session logistics\n\n'
             f"Conversation:\n{messages_text}\n\n"
             "Extract memories as JSON. Return [] if nothing worth remembering.\n"
             '[  {"content": "...", "category": "...", "confidence": 0.0-1.0}  ]\n'
