@@ -1,9 +1,9 @@
 import os
 from copy import deepcopy
 from pathlib import Path
-from typing_extensions import TypedDict
 
 import yaml
+from typing_extensions import TypedDict
 
 
 class StorageConfig(TypedDict):
@@ -82,7 +82,14 @@ DEFAULT_CONFIG: Config = {
     "extraction": {
         "model": "google/gemini-3-flash-preview",
         "max_content_chars": 4000,
-        "categories": ["learning", "preference", "project_context", "gotcha", "workflow", "promoted"],
+        "categories": [
+            "learning",
+            "preference",
+            "project_context",
+            "gotcha",
+            "workflow",
+            "promoted",
+        ],
         "confidence_threshold": 0.5,
         "dedup_threshold": 0.92,
         "skip_content_patterns": ["MEMORY.md", "write_memory", "edit_memory"],

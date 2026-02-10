@@ -5,8 +5,8 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 from oghma.config import load_config
-from oghma.extractor import Extractor
 from oghma.embedder import EmbedConfig, create_embedder
+from oghma.extractor import Extractor
 from oghma.storage import MemoryRecord, Storage
 
 
@@ -139,9 +139,7 @@ def oghma_add(
                     "status": "duplicate",
                     "similar_to": existing_id,
                     "similarity": round(similarity, 3),
-                    "existing_content": (
-                        existing_memory["content"] if existing_memory else None
-                    ),
+                    "existing_content": (existing_memory["content"] if existing_memory else None),
                     "content": content,
                     "category": category,
                 }

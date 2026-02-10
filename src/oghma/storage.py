@@ -630,7 +630,9 @@ class Storage:
                         SELECT m.*
                         FROM vec
                         JOIN memories m ON m.id = vec.memory_id
-                        ORDER BY (1.0 + 0.3 / (1.0 + (julianday('now') - julianday(m.created_at)))) DESC
+                        ORDER BY (
+                            1.0 + 0.3 / (1.0 + (julianday('now') - julianday(m.created_at)))
+                        ) DESC
                         LIMIT ? OFFSET ?
                     """
                     params: list[Any] = [
@@ -673,7 +675,11 @@ class Storage:
                         ),
                         ranked AS (
                             SELECT rrf.memory_id,
-                                   SUM(rrf.score) * (1.0 + 0.5 / (1.0 + (julianday('now') - julianday(m.created_at)))) AS rrf_score
+                                   SUM(rrf.score) * (
+                                       1.0 + 0.5 / (
+                                           1.0 + (julianday('now') - julianday(m.created_at))
+                                       )
+                                   ) AS rrf_score
                             FROM rrf
                             JOIN memories m ON m.id = rrf.memory_id
                             GROUP BY rrf.memory_id
@@ -760,13 +766,10 @@ class Storage:
             sql += " GROUP BY source_tool, category ORDER BY count DESC"
             cursor.execute(sql, params)
             return [
-                {"source_tool": r[0], "category": r[1], "count": r[2]}
-                for r in cursor.fetchall()
+                {"source_tool": r[0], "category": r[1], "count": r[2]} for r in cursor.fetchall()
             ]
 
-    def delete_stale_memories(
-        self, max_age_days: int, source_tool: str | None = None
-    ) -> int:
+    def delete_stale_memories(self, max_age_days: int, source_tool: str | None = None) -> int:
         with self._get_connection() as conn:
             cursor = conn.cursor()
             sql = """

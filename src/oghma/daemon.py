@@ -111,8 +111,7 @@ class Daemon:
             skip_patterns = self.config.get("extraction", {}).get("skip_content_patterns", [])
             if skip_patterns:
                 messages = [
-                    m for m in messages
-                    if not any(pat in m.content for pat in skip_patterns)
+                    m for m in messages if not any(pat in m.content for pat in skip_patterns)
                 ]
 
             if not self.watcher.should_process(messages):
@@ -154,17 +153,13 @@ class Daemon:
             else:
                 vectors = [None] * len(memories)
 
-            dedup_threshold = self.config.get("extraction", {}).get(
-                "dedup_threshold", 0.92
-            )
+            dedup_threshold = self.config.get("extraction", {}).get("dedup_threshold", 0.92)
 
             new_memory_ids = []
             skipped_dupes = 0
-            for memory, vector in zip(memories, vectors):
+            for memory, vector in zip(memories, vectors, strict=True):
                 if vector is not None:
-                    existing = self.storage.find_similar_memory(
-                        vector, threshold=dedup_threshold
-                    )
+                    existing = self.storage.find_similar_memory(vector, threshold=dedup_threshold)
                     if existing:
                         existing_id, similarity = existing
                         logger.debug(

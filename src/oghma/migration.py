@@ -33,9 +33,7 @@ class EmbeddingMigration:
         if dry_run:
             batch = self.storage.get_memories_without_embeddings(limit=10_000)
             processed = len(batch)
-            return MigrationResult(
-                processed=processed, migrated=0, skipped=processed, failed=0
-            )
+            return MigrationResult(processed=processed, migrated=0, skipped=processed, failed=0)
 
         while True:
             batch = self.storage.get_memories_without_embeddings(limit=self.batch_size)

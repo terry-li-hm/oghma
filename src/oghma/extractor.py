@@ -62,10 +62,7 @@ class Extractor:
             api_key = os.environ.get("OPENROUTER_API_KEY")
             if not api_key:
                 raise ValueError("OPENROUTER_API_KEY environment variable not set")
-            self.client = OpenAI(
-                api_key=api_key,
-                base_url="https://openrouter.ai/api/v1"
-            )
+            self.client = OpenAI(api_key=api_key, base_url="https://openrouter.ai/api/v1")
             self.use_openrouter = True
         else:
             api_key = os.environ.get("OPENAI_API_KEY")
@@ -174,7 +171,8 @@ class Extractor:
             "- What the assistant said or did (focus on discoveries, not narration)\n"
             "- Trivially obvious facts ('The project uses Python', 'The app uses React')\n"
             "- Restatements of config: 'auto-memory captures learnings', 'skills must be synced'\n"
-            "- Session logistics: what files were read, what tools were used, what was discussed\n\n"
+            "- Session logistics: what files were read, what tools were used, "
+            "what was discussed\n\n"
             "Good examples:\n"
             '  {"content": "sqlite-vec requires enable_load_extension(True) BEFORE '
             'sqlite_vec.load(conn)", "category": "gotcha", "confidence": 0.95}\n'
@@ -185,11 +183,14 @@ class Extractor:
             "Bad examples (DO NOT extract these):\n"
             '  {"content": "The user is located in Hong Kong"} — setup info, not a learning\n'
             '  {"content": "The user prefers pnpm"} — config fact, not actionable\n'
-            '  {"content": "The user wants to improve extraction quality"} — narrating the session\n'
+            '  {"content": "The user wants to improve extraction quality"}'
+            " — narrating the session\n"
             '  {"content": "The project uses SQLite for storage"} — trivially obvious\n'
             '  {"content": "CLAUDE.md must be auto-committed"} — system instruction\n'
-            '  {"content": "The assistant helped debug the API issue"} — narrating assistant actions\n'
-            '  {"content": "Non-obvious learnings should be captured to skills"} — restating config\n'
+            '  {"content": "The assistant helped debug the API issue"}'
+            " — narrating assistant actions\n"
+            '  {"content": "Non-obvious learnings should be captured to skills"}'
+            " — restating config\n"
             '  {"content": "The conversation covered Oghma maintenance"} — session logistics\n\n'
             f"Conversation:\n{messages_text}\n\n"
             "Extract memories as JSON. Return [] if nothing worth remembering.\n"
