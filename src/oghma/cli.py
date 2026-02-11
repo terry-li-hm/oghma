@@ -398,9 +398,7 @@ def purge_noise(dry_run: bool, execute: bool) -> None:
         table.add_column("Value", style="green")
         table.add_row("Total memories", str(result.total_memories))
         table.add_row("Noise matches", str(result.noise_found))
-        table.add_row(
-            "Would keep", str(result.total_memories - result.noise_found)
-        )
+        table.add_row("Would keep", str(result.total_memories - result.noise_found))
         console.print(table)
 
         if result.by_reason:
@@ -419,9 +417,7 @@ def purge_noise(dry_run: bool, execute: bool) -> None:
                 "Use --execute to actually delete noisy memories.[/yellow]"
             )
         elif not dry_run and result.noise_found > 0:
-            console.print(
-                f"\n[green]Purged {result.noise_found} noisy memories.[/green]"
-            )
+            console.print(f"\n[green]Purged {result.noise_found} noisy memories.[/green]")
         else:
             console.print("\n[green]No noisy memories found.[/green]")
 
@@ -625,21 +621,29 @@ def export(
 
 @cli.command("prune-stale")
 @click.option(
-    "--max-age-days", default=90, show_default=True,
+    "--max-age-days",
+    default=90,
+    show_default=True,
     help="Delete memories older than N days",
 )
 @click.option("--source-tool", "-s", help="Only prune this source")
 @click.option(
-    "--dry-run/--no-dry-run", is_flag=True, default=True,
-    show_default=True, help="Preview without deleting",
+    "--dry-run/--no-dry-run",
+    is_flag=True,
+    default=True,
+    show_default=True,
+    help="Preview without deleting",
 )
 @click.option(
-    "--execute", is_flag=True,
+    "--execute",
+    is_flag=True,
     help="Actually delete stale memories (overrides --dry-run)",
 )
 def prune_stale(
-    max_age_days: int, source_tool: str | None,
-    dry_run: bool, execute: bool,
+    max_age_days: int,
+    source_tool: str | None,
+    dry_run: bool,
+    execute: bool,
 ) -> None:
     """Delete memories older than a given age."""
     try:
