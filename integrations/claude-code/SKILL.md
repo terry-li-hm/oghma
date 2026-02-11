@@ -51,16 +51,9 @@ oghma search "rate limit" --limit 10
 
 ## Setup
 
-Requires `oghma` to be installed and the daemon running:
-
 ```bash
 pip install oghma
 oghma init
 oghma start
-```
-
-Copy this file to your Claude Code skills directory:
-```bash
-mkdir -p ~/.claude/skills/oghma
-cp integrations/claude-code/SKILL.md ~/.claude/skills/oghma/SKILL.md
+oghma install claude-code
 ```

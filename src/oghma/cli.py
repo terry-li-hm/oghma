@@ -720,5 +720,84 @@ def promote(memory_id: int) -> None:
         raise SystemExit(1) from None
 
 
+_CLAUDE_CODE_SKILL = """\
+---
+name: oghma
+description: Search memories extracted from AI coding sessions. "search memories", "what did we learn about"
+user_invocable: true
+---
+
+# Oghma Memory Search
+
+Search memories extracted from your AI coding transcripts (Claude Code, Codex, OpenCode) via CLI. Zero MCP token overhead.
+
+## Usage
+
+```bash
+# Hybrid search (best quality — combines keyword + semantic + recency)
+oghma search "sqlite-vec gotcha" --mode hybrid --limit 5
+
+# Filter by category
+oghma search "async patterns" --category gotcha --mode hybrid --limit 5
+
+# Filter by source tool
+oghma search "deployment" --tool claude_code --mode hybrid --limit 5
+
+# Quick keyword search (fastest)
+oghma search "rate limit" --limit 10
+```
+
+## Search Modes
+
+| Mode | Engine | Best for |
+|------|--------|----------|
+| `keyword` (default) | SQLite FTS5 | Exact term matching, fast |
+| `vector` | sqlite-vec cosine similarity | Conceptual/semantic search |
+| `hybrid` | RRF fusion of both + recency boost | Best overall relevance |
+
+## Categories
+
+| Category | What it contains |
+|----------|------------------|
+| `learning` | Technical insights, how things work |
+| `gotcha` | Pitfalls, bugs, things that don't work as expected |
+| `workflow` | Processes, commands, how to do things |
+| `preference` | User preferences, style choices |
+| `project_context` | Project-specific facts, people, dates |
+
+## When to Search
+
+- Before starting work on a topic — check for past learnings
+- When the user asks "what did we learn about X?" or "didn't we hit this before?"
+- When debugging something that feels familiar
+- Prefer `--mode hybrid` for best results
+"""
+
+_INTEGRATIONS = {
+    "claude-code": {
+        "name": "Claude Code skill",
+        "path": Path("~/.claude/skills/oghma/SKILL.md").expanduser(),
+        "content": _CLAUDE_CODE_SKILL,
+    },
+}
+
+
+@cli.command()
+@click.argument("integration", type=click.Choice(list(_INTEGRATIONS.keys())))
+def install(integration: str) -> None:
+    """Install an integration (e.g. 'oghma install claude-code')."""
+    info = _INTEGRATIONS[integration]
+    target = info["path"]
+    target.parent.mkdir(parents=True, exist_ok=True)
+
+    if target.exists():
+        console.print(f"[yellow]{info['name']} already installed at {target}[/yellow]")
+        if not click.confirm("Overwrite?"):
+            return
+
+    target.write_text(info["content"])
+    console.print(f"[green]Installed {info['name']} to {target}[/green]")
+
+
 def main() -> None:
     cli()

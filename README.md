@@ -69,8 +69,7 @@ Two ways to connect Oghma to your AI assistant:
 Zero token overhead — the skill is only loaded when invoked, not on every turn.
 
 ```bash
-mkdir -p ~/.claude/skills/oghma
-cp integrations/claude-code/SKILL.md ~/.claude/skills/oghma/SKILL.md
+oghma install claude-code
 ```
 
 Your assistant will use `oghma search` via CLI when it needs to recall past learnings.
