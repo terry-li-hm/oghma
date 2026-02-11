@@ -9,6 +9,8 @@ Oghma hums in the background — watching your coding sessions, extracting techn
 
 It's a safety net for hard-won discoveries, not a knowledge base or personal wiki. For structured notes and preferences, use your own docs. For "what was that sqlite-vec trick again?" — search Oghma.
 
+![demo](demo.gif)
+
 ## How it works
 
 ```
