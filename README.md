@@ -60,7 +60,24 @@ oghma start         # background daemon
 
 Edit `~/.oghma/config.yaml` to configure your extraction model, tool paths, and embedding settings.
 
-## MCP server
+## Integration
+
+Two ways to connect Oghma to your AI assistant:
+
+### Option A: Claude Code skill (recommended)
+
+Zero token overhead — the skill is only loaded when invoked, not on every turn.
+
+```bash
+mkdir -p ~/.claude/skills/oghma
+cp integrations/claude-code/SKILL.md ~/.claude/skills/oghma/SKILL.md
+```
+
+Your assistant will use `oghma search` via CLI when it needs to recall past learnings.
+
+### Option B: MCP server
+
+Works with any MCP client (Claude Code, Cursor, Windsurf, etc.). Costs ~350 tokens/turn for tool schemas.
 
 Add to your Claude Code config (`~/.claude.json`):
 
@@ -75,7 +92,7 @@ Add to your Claude Code config (`~/.claude.json`):
 }
 ```
 
-This exposes five tools to your AI assistant:
+This exposes four tools to your AI assistant:
 
 | Tool | Description |
 |------|-------------|
