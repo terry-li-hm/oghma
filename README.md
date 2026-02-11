@@ -5,9 +5,9 @@
 
 Persistent memory for AI coding assistants.
 
-Every time you close a session with Claude Code, Codex, or OpenCode, the discoveries you made disappear. That workaround you found for sqlite-vec? Gone. The API quirk that cost you an hour? Forgotten. Next week, you'll hit the same wall again.
+Oghma hums in the background — watching your coding sessions, extracting technical gotchas and workarounds via LLM, and making them searchable for when you vaguely remember solving something three months ago but forgot how.
 
-Oghma watches your transcript files, extracts the non-obvious learnings via LLM, deduplicates against what it already knows, and makes everything searchable — keyword, semantic, or hybrid.
+It's a safety net for hard-won discoveries, not a knowledge base or personal wiki. For structured notes and preferences, use your own docs. For "what was that sqlite-vec trick again?" — search Oghma.
 
 ## How it works
 
@@ -81,7 +81,6 @@ This exposes five tools to your AI assistant:
 |------|-------------|
 | `oghma_search` | Search memories (keyword, vector, or hybrid) |
 | `oghma_get` | Fetch a specific memory by ID |
-| `oghma_add` | Add a memory directly (with auto-dedup) |
 | `oghma_stats` | Memory counts by category and source |
 | `oghma_categories` | List categories with counts |
 
@@ -177,7 +176,16 @@ Oghma supports any OpenAI or OpenRouter model:
 oghma search "async patterns" --mode hybrid --limit 20
 ```
 
-## How extraction works
+## How memories enter the database
+
+Memories arrive through two paths:
+
+| Path | How | `source_tool` | Best for |
+|------|-----|---------------|----------|
+| **Daemon extraction** | Background daemon processes transcripts via LLM | `claude_code`, `codex`, `opencode` | Catching things you'd forget to note |
+| **Manual addition** | `oghma_add` via MCP or CLI | `manual` | Curated insights you know are valuable |
+
+### Daemon extraction
 
 The daemon sends conversation chunks to an LLM with a prompt engineered to extract only actionable insights:
 
@@ -186,6 +194,10 @@ The daemon sends conversation chunks to an LLM with a prompt engineered to extra
 **Filtered:** Setup facts ("uses Python 3.12"), config restatements, assistant narration ("The AI suggested..."), trivially obvious observations.
 
 Each memory gets a confidence score and a category. Post-extraction, regex noise patterns catch stragglers. Pre-insertion, embedding similarity catches duplicates. The result: your database grows with genuine insights, not noise.
+
+### Manual addition
+
+You can add memories directly via the CLI (`oghma add` — coming soon). Use this for curated, high-confidence insights — not as a general notepad. For personal preferences and stable facts, a structured note (e.g., in your knowledge base) is usually a better fit.
 
 ## Maintenance
 

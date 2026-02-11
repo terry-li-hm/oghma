@@ -6,7 +6,6 @@ from mcp.server.fastmcp import FastMCP
 
 from oghma.config import load_config
 from oghma.embedder import EmbedConfig, create_embedder
-from oghma.extractor import Extractor
 from oghma.storage import MemoryRecord, Storage
 
 
@@ -105,57 +104,6 @@ def oghma_stats() -> dict[str, Any]:
         "last_extraction_time": extraction_logs[0]["created_at"] if extraction_logs else None,
     }
 
-
-@mcp.tool()
-def oghma_add(
-    content: str,
-    category: str,
-    source_tool: str = "manual",
-    confidence: float = 1.0,
-) -> dict[str, Any]:
-    """Add a memory directly. Categories follow extraction.categories in config."""
-    valid_categories = (
-        _get_config().get("extraction", {}).get("categories", Extractor.CATEGORIES)
-        or Extractor.CATEGORIES
-    )
-    if category not in valid_categories:
-        raise ValueError(f"category must be one of: {valid_categories}")
-
-    storage = _get_storage()
-
-    # Preventive dedup: embed first, check similarity, then insert
-    vector = None
-    embedder = _get_embedder()
-    if embedder:
-        try:
-            vector = embedder.embed(content)
-            threshold = _get_config().get("extraction", {}).get("dedup_threshold", 0.92)
-            existing = storage.find_similar_memory(vector, threshold=threshold)
-            if existing:
-                existing_id, similarity = existing
-                existing_memory = storage.get_memory_by_id(existing_id)
-                return {
-                    "id": None,
-                    "status": "duplicate",
-                    "similar_to": existing_id,
-                    "similarity": round(similarity, 3),
-                    "existing_content": (existing_memory["content"] if existing_memory else None),
-                    "content": content,
-                    "category": category,
-                }
-        except Exception:
-            pass
-
-    memory_id = storage.add_memory(
-        content=content,
-        category=category,
-        source_tool=source_tool,
-        source_file="mcp_direct",
-        confidence=confidence,
-        embedding=vector,
-    )
-
-    return {"id": memory_id, "status": "created", "content": content, "category": category}
 
 
 @mcp.tool()
