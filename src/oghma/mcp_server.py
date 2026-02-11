@@ -41,6 +41,19 @@ def _get_embedder():
     return _get_lifespan_context().get("embedder")
 
 
+def _format_memories(memories: list[MemoryRecord]) -> str:
+    """Format memories as readable text instead of raw JSON."""
+    if not memories:
+        return "No memories found."
+    lines = []
+    for m in memories:
+        category = m.get("category", "unknown")
+        mem_id = m.get("id", "?")
+        content = m.get("content", "")
+        lines.append(f"- [{category}] (#{mem_id}) {content}")
+    return "\n".join(lines)
+
+
 @mcp.tool()
 def oghma_search(
     query: str,
@@ -48,7 +61,7 @@ def oghma_search(
     source_tool: str | None = None,
     limit: int = 10,
     search_mode: str = "hybrid",
-) -> list[MemoryRecord]:
+) -> str:
     """Search memories by keyword, vector, or hybrid mode."""
     if limit < 1:
         raise ValueError("limit must be >= 1")
@@ -57,12 +70,13 @@ def oghma_search(
 
     storage = _get_storage()
     if search_mode == "keyword":
-        return storage.search_memories(
+        results = storage.search_memories(
             query=query,
             category=category,
             source_tool=source_tool,
             limit=limit,
         )
+        return _format_memories(results)
 
     query_embedding: list[float] | None = None
     try:
@@ -71,9 +85,9 @@ def oghma_search(
         query_embedding = embedder.embed(query)
     except Exception:
         if search_mode == "vector":
-            return []
+            return "No memories found (embedding unavailable)."
 
-    return storage.search_memories_hybrid(
+    results = storage.search_memories_hybrid(
         query=query,
         query_embedding=query_embedding,
         category=category,
@@ -81,13 +95,22 @@ def oghma_search(
         limit=limit,
         search_mode=search_mode,
     )
+    return _format_memories(results)
 
 
 @mcp.tool()
-def oghma_get(memory_id: int) -> MemoryRecord | None:
+def oghma_get(memory_id: int) -> str:
     """Get a memory by ID."""
     storage = _get_storage()
-    return storage.get_memory_by_id(memory_id)
+    m = storage.get_memory_by_id(memory_id)
+    if not m:
+        return f"Memory #{memory_id} not found."
+    confidence = m.get("confidence", 0)
+    return (
+        f"#{m.get('id', '?')} [{m.get('category', 'unknown')}]\n"
+        f"{m.get('content', '')}\n"
+        f"Source: {m.get('source_tool', '?')} | Confidence: {confidence:.0%} | {m.get('created_at', '?')}"
+    )
 
 
 @mcp.tool()

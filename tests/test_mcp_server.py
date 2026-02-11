@@ -103,7 +103,8 @@ def test_oghma_search_uses_storage_context(monkeypatch: pytest.MonkeyPatch) -> N
         limit=5,
     )
 
-    assert results == [{"id": 1, "content": "hit"}]
+    assert "hit" in results
+    assert "#1" in results
     fake_storage.search_memories_hybrid.assert_called_once_with(
         query="hit",
         query_embedding=None,
@@ -137,7 +138,8 @@ def test_oghma_get_uses_storage_context(monkeypatch: pytest.MonkeyPatch) -> None
 
     result = mcp_server.oghma_get(memory_id=42)
 
-    assert result == {"id": 42, "content": "memory"}
+    assert "memory" in result
+    assert "#42" in result
     fake_storage.get_memory_by_id.assert_called_once_with(42)
 
 
@@ -184,12 +186,11 @@ def test_oghma_tools_work_with_real_storage_context(
     monkeypatch.setattr(mcp_server, "_get_lifespan_context", lambda: {"storage": read_only_storage})
 
     search_results = mcp_server.oghma_search(query="Python", limit=10)
-    assert len(search_results) == 1
-    assert search_results[0]["category"] == "gotcha"
+    assert "[gotcha]" in search_results
+    assert "#1" in search_results
 
-    memory = mcp_server.oghma_get(memory_id=search_results[0]["id"])
-    assert memory is not None
-    assert memory["source_tool"] == "claude_code"
+    memory = mcp_server.oghma_get(memory_id=1)
+    assert "claude_code" in memory
 
     stats = mcp_server.oghma_stats()
     assert stats["total_memories"] == 2
