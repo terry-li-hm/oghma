@@ -45,7 +45,7 @@ class Extractor:
     MAX_RETRIES = 3
     BASE_RETRY_DELAY = 1.0
 
-    CATEGORIES = ["learning", "preference", "project_context", "gotcha", "workflow", "promoted"]
+    CATEGORIES = ["learning", "gotcha"]
 
     # Models that require OpenRouter
     OPENROUTER_PREFIXES = ("google/", "anthropic/", "meta-llama/", "deepseek/", "moonshotai/")
@@ -152,50 +152,40 @@ class Extractor:
 
         prompt = (
             "You are a memory extraction system for an AI coding assistant. "
-            "Extract ONLY genuinely useful memories that would help in future sessions.\n\n"
-            f"Categories:\n{categories_desc}\n\n"
-            "EXTRACT (high value):\n"
-            "- Technical discoveries: bugs found, workarounds, API quirks, library gotchas\n"
-            "- Tool-specific learnings: commands that worked, configurations that solved problems\n"
-            "- Project decisions: architecture choices, why X was chosen over Y\n"
-            "- Workflow patterns: what sequence of steps solved a problem\n"
-            "- Error solutions: what error occurred and how it was fixed\n\n"
-            "DO NOT EXTRACT (noise — be strict about this):\n"
-            "- What the user's setup/environment is (timezone, OS, tools installed)\n"
-            "- What config files contain or what instructions say\n"
-            "- Observations about the user: 'The user prefers X', 'The user is working on Y', "
-            "'The user wants to...', 'The user has...'\n"
-            "- Observations about the assistant: 'The assistant suggested...', 'The AI helped...', "
-            "'The system provided...', 'The conversation covered...'\n"
-            "- Information from system prompts, CLAUDE.md, MEMORY.md, or README files\n"
-            "- What the assistant said or did (focus on discoveries, not narration)\n"
-            "- Trivially obvious facts ('The project uses Python', 'The app uses React')\n"
-            "- Restatements of config: 'auto-memory captures learnings', 'skills must be synced'\n"
-            "- Session logistics: what files were read, what tools were used, "
-            "what was discussed\n\n"
-            "Good examples:\n"
+            "Extract ONLY things that would save time if encountered again.\n\n"
+            "TWO categories only:\n"
+            "- learning: something discovered that wasn't obvious beforehand "
+            "(API quirk, architecture decision rationale, command that solved a problem, "
+            "performance finding, tool capability/limitation)\n"
+            "- gotcha: something that broke, surprised, or wasted time "
+            "(bug, silent failure, misleading docs, version incompatibility, "
+            "environment-specific trap)\n\n"
+            "STRICT RULES — return [] rather than extract noise:\n"
+            "- Each memory must be a SPECIFIC, ACTIONABLE fact — not a summary or observation\n"
+            "- Must contain enough detail to be useful without the original conversation\n"
+            "- NO user profile observations ('The user prefers/is/has/wants...')\n"
+            "- NO assistant narration ('The assistant suggested/helped...')\n"
+            "- NO session logistics ('We discussed/read/searched...')\n"
+            "- NO config restatements ('CLAUDE.md says...', 'skills must be synced')\n"
+            "- NO trivially obvious facts ('Python uses pip', 'React has components')\n"
+            "- NO meta-observations about the conversation itself\n"
+            "- Aim for 0-3 memories per conversation. Most conversations have ZERO worth extracting.\n\n"
+            "Good:\n"
             '  {"content": "sqlite-vec requires enable_load_extension(True) BEFORE '
             'sqlite_vec.load(conn)", "category": "gotcha", "confidence": 0.95}\n'
-            '  {"content": "Gmail MCP can send but cannot reply to threads — no '
-            'thread ID support", "category": "gotcha", "confidence": 0.9}\n'
-            '  {"content": "OpenCode times out on small edits (<25 lines); reserve '
-            'for bulk work", "category": "learning", "confidence": 0.9}\n\n'
-            "Bad examples (DO NOT extract these):\n"
-            '  {"content": "The user is located in Hong Kong"} — setup info, not a learning\n'
-            '  {"content": "The user prefers pnpm"} — config fact, not actionable\n'
-            '  {"content": "The user wants to improve extraction quality"}'
-            " — narrating the session\n"
-            '  {"content": "The project uses SQLite for storage"} — trivially obvious\n'
-            '  {"content": "CLAUDE.md must be auto-committed"} — system instruction\n'
-            '  {"content": "The assistant helped debug the API issue"}'
-            " — narrating assistant actions\n"
-            '  {"content": "Non-obvious learnings should be captured to skills"}'
-            " — restating config\n"
-            '  {"content": "The conversation covered Oghma maintenance"} — session logistics\n\n'
+            '  {"content": "Oghma DB timestamps are UTC, not local time — '
+            'compare with datetime.now(UTC)", "category": "gotcha", "confidence": 0.9}\n'
+            '  {"content": "consilium --quick 6/6 unanimity usually means biased framing, '
+            'not a clear answer", "category": "learning", "confidence": 0.9}\n\n'
+            "Bad (DO NOT extract):\n"
+            '  "The user is located in Hong Kong" — profile, not actionable\n'
+            '  "Simon is the user\'s manager" — context, not a discovery\n'
+            '  "The project uses SQLite for storage" — obvious\n'
+            '  "The conversation covered Oghma maintenance" — logistics\n\n'
             f"Conversation:\n{messages_text}\n\n"
-            "Extract memories as JSON. Return [] if nothing worth remembering.\n"
-            '[  {"content": "...", "category": "...", "confidence": 0.0-1.0}  ]\n'
-            "Respond with valid JSON only, no markdown."
+            "Return JSON array. Prefer [] over low-value extractions.\n"
+            '[  {"content": "...", "category": "learning|gotcha", "confidence": 0.0-1.0}  ]\n'
+            "Valid JSON only, no markdown."
         )
 
         return prompt
