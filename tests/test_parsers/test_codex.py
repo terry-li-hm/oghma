@@ -111,6 +111,37 @@ def test_skips_non_item_types(parser, fixture_dir):
     assert messages[0].role == "user"
 
 
+def test_old_format_skips_non_conversational_roles(parser, fixture_dir):
+    file_path = fixture_dir / ".codex" / "sessions" / "2026" / "02" / "05" / "rollout-test.jsonl"
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+
+    file_path.write_text(
+        '{"type": "item", "payload": {"item": {"role": "system", "content": "sys prompt"}}}\n'
+        '{"type": "item", "payload": {"item": {"role": "tool", "content": "tool result"}}}\n'
+        '{"type": "item", "payload": {"item": {"role": "user", "content": "Valid"}}}\n'
+    )
+
+    messages = parser.parse(file_path)
+
+    assert len(messages) == 1
+    assert messages[0].role == "user"
+
+
+def test_old_format_maps_developer_role_to_assistant(parser, fixture_dir):
+    file_path = fixture_dir / ".codex" / "sessions" / "2026" / "02" / "05" / "rollout-test.jsonl"
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+
+    file_path.write_text(
+        '{"type": "item", "payload": {"item": {"role": "developer",'
+        ' "content": "Developer instruction"}}}\n'
+    )
+
+    messages = parser.parse(file_path)
+
+    assert len(messages) == 1
+    assert messages[0].role == "assistant"
+
+
 def test_handles_corrupt_json_gracefully(parser, fixture_dir):
     file_path = fixture_dir / ".codex" / "sessions" / "2026" / "02" / "05" / "rollout-test.jsonl"
     file_path.parent.mkdir(parents=True, exist_ok=True)

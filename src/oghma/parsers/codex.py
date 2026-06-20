@@ -43,19 +43,21 @@ class CodexParser(BaseParser):
 
         payload = data.get("payload", {})
 
-        # New format: role directly in payload
+        # New format: role directly in payload.
+        # Old format: nested in payload.item.
         if "role" in payload:
             role = payload.get("role")
-            # Map developer/assistant to assistant, user to user
-            if role in ("developer", "assistant"):
-                return "assistant"
-            elif role == "user":
-                return "user"
-            return None
+        else:
+            item = payload.get("item", {})
+            role = item.get("role")
 
-        # Old format: nested in payload.item
-        item = payload.get("item", {})
-        return item.get("role")
+        # Map developer/assistant to assistant, user to user; skip everything
+        # else (system, tool, ...) in both formats.
+        if role in ("developer", "assistant"):
+            return "assistant"
+        elif role == "user":
+            return "user"
+        return None
 
     def _extract_content(self, data: dict) -> str:
         payload = data.get("payload", {})
