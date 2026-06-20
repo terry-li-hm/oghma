@@ -83,4 +83,6 @@ class CodexParser(BaseParser):
                         parts.append(text)
             return "\n".join(parts)
 
-        return str(content)
+        # Null or otherwise empty content must not become the literal string
+        # "None"; return "" so the caller skips the message.
+        return str(content) if content else ""

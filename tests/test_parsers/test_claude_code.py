@@ -126,3 +126,19 @@ def test_truncates_long_content(parser, fixture_dir):
 
     assert len(messages) == 1
     assert len(messages[0].content) == 3000
+
+
+def test_skips_message_with_null_content(parser, fixture_dir):
+    """A JSON-null content must not become the literal string "None"."""
+    file_path = fixture_dir / ".claude" / "projects" / "-Users-terry" / "test.jsonl"
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+
+    file_path.write_text(
+        '{"type": "user", "message": {"role": "user", "content": null}}\n'
+        '{"type": "assistant", "message": {"role": "assistant", "content": "Real reply"}}\n'
+    )
+
+    messages = parser.parse(file_path)
+
+    assert len(messages) == 1
+    assert messages[0].content == "Real reply"

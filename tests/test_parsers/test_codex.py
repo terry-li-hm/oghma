@@ -161,3 +161,19 @@ def test_returns_empty_list_for_nonexistent_file(parser):
     messages = parser.parse(Path("/nonexistent/file.jsonl"))
 
     assert messages == []
+
+
+def test_skips_message_with_null_content(parser, fixture_dir):
+    """A JSON-null content must not become the literal string "None"."""
+    file_path = fixture_dir / ".codex" / "sessions" / "2026" / "02" / "05" / "rollout-test.jsonl"
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+
+    file_path.write_text(
+        '{"type": "response_item", "payload": {"role": "user", "content": null}}\n'
+        '{"type": "response_item", "payload": {"role": "assistant", "content": "Real reply"}}\n'
+    )
+
+    messages = parser.parse(file_path)
+
+    assert len(messages) == 1
+    assert messages[0].content == "Real reply"

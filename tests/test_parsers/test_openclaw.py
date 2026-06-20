@@ -129,3 +129,19 @@ def test_handles_content_as_list(parser, fixture_dir):
 
     assert len(messages) == 1
     assert messages[0].content == "Hello\n world"
+
+
+def test_skips_message_with_null_content(parser, fixture_dir):
+    """A JSON-null content must not become the literal string "None"."""
+    file_path = fixture_dir / ".openclaw" / "agents" / "main" / "sessions" / "test.jsonl"
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+
+    file_path.write_text(
+        '{"type": "message", "message": {"role": "user", "content": null}}\n'
+        '{"type": "message", "message": {"role": "assistant", "content": "Real reply"}}\n'
+    )
+
+    messages = parser.parse(file_path)
+
+    assert len(messages) == 1
+    assert messages[0].content == "Real reply"
