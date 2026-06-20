@@ -93,6 +93,38 @@ def test_parse_messages_with_parts(parser, fixture_dir):
     assert messages[1].content == "Response part 1\nResponse part 2"
 
 
+def test_multi_part_content_ordered_regardless_of_glob_order(parser, fixture_dir, monkeypatch):
+    """Parts must be assembled in prt_* filename order, not filesystem glob order.
+
+    glob() returns entries in arbitrary, filesystem-dependent order. Simulate a
+    filesystem that yields parts in reverse and confirm content stays in order.
+    """
+    session_dir = fixture_dir / ".local" / "share" / "opencode" / "storage" / "message" / "ses_test"
+    session_dir.mkdir(parents=True)
+
+    msg = {"id": "msg1", "role": "assistant"}
+    (session_dir / "msg_0001.json").write_text(json.dumps(msg))
+
+    storage_dir = fixture_dir / ".local" / "share" / "opencode" / "storage"
+    part_dir = storage_dir / "part" / "msg_0001"
+    part_dir.mkdir(parents=True)
+    (part_dir / "prt_0001.json").write_text(json.dumps({"message_id": "msg1", "text": "First"}))
+    (part_dir / "prt_0002.json").write_text(json.dumps({"message_id": "msg1", "text": "Second"}))
+    (part_dir / "prt_0003.json").write_text(json.dumps({"message_id": "msg1", "text": "Third"}))
+
+    real_glob = Path.glob
+
+    def reversed_glob(self, pattern):
+        return reversed(sorted(real_glob(self, pattern)))
+
+    monkeypatch.setattr(Path, "glob", reversed_glob)
+
+    messages = parser.parse(session_dir)
+
+    assert len(messages) == 1
+    assert messages[0].content == "First\nSecond\nThird"
+
+
 def test_skips_messages_without_role(parser, fixture_dir):
     session_dir = fixture_dir / ".local" / "share" / "opencode" / "storage" / "message" / "ses_test"
     session_dir.mkdir(parents=True)

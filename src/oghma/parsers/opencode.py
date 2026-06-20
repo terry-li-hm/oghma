@@ -24,7 +24,7 @@ class OpenCodeParser(BaseParser):
             msg_id = msg_file.stem
             msg_part_dir = part_dir / msg_id
             if msg_part_dir.is_dir():
-                part_files.extend(msg_part_dir.glob("prt_*.json"))
+                part_files.extend(sorted(msg_part_dir.glob("prt_*.json")))
 
         parts_map = self._build_parts_map(part_files)
 
