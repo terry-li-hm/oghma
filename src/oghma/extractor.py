@@ -148,18 +148,26 @@ class Extractor:
 
         messages_text = messages_text[: self.max_chars]
 
-        categories_desc = "\n".join(f"- {cat}" for cat in self.categories)
+        _category_descriptions = {
+            "learning": "something discovered that wasn't obvious beforehand "
+            "(API quirk, architecture decision rationale, command that solved a problem, "
+            "performance finding, tool capability/limitation)",
+            "gotcha": "something that broke, surprised, or wasted time "
+            "(bug, silent failure, misleading docs, version incompatibility, "
+            "environment-specific trap)",
+        }
+        categories_desc = "\n".join(
+            f"- {cat}: {_category_descriptions[cat]}"
+            if cat in _category_descriptions
+            else f"- {cat}"
+            for cat in self.categories
+        )
+        categories_format = "|".join(self.categories)
 
         prompt = (
             "You are a memory extraction system for an AI coding assistant. "
             "Extract ONLY things that would save time if encountered again.\n\n"
-            "TWO categories only:\n"
-            "- learning: something discovered that wasn't obvious beforehand "
-            "(API quirk, architecture decision rationale, command that solved a problem, "
-            "performance finding, tool capability/limitation)\n"
-            "- gotcha: something that broke, surprised, or wasted time "
-            "(bug, silent failure, misleading docs, version incompatibility, "
-            "environment-specific trap)\n\n"
+            f"Categories:\n{categories_desc}\n\n"
             "STRICT RULES — return [] rather than extract noise:\n"
             "- Each memory must be a SPECIFIC, ACTIONABLE fact — not a summary or observation\n"
             "- Must contain enough detail to be useful without the original conversation\n"
@@ -169,7 +177,8 @@ class Extractor:
             "- NO config restatements ('CLAUDE.md says...', 'skills must be synced')\n"
             "- NO trivially obvious facts ('Python uses pip', 'React has components')\n"
             "- NO meta-observations about the conversation itself\n"
-            "- Aim for 0-3 memories per conversation. Most conversations have ZERO worth extracting.\n\n"
+            "- Aim for 0-3 memories per conversation. "
+            "Most conversations have ZERO worth extracting.\n\n"
             "Good:\n"
             '  {"content": "sqlite-vec requires enable_load_extension(True) BEFORE '
             'sqlite_vec.load(conn)", "category": "gotcha", "confidence": 0.95}\n'
@@ -184,7 +193,8 @@ class Extractor:
             '  "The conversation covered Oghma maintenance" — logistics\n\n'
             f"Conversation:\n{messages_text}\n\n"
             "Return JSON array. Prefer [] over low-value extractions.\n"
-            '[  {"content": "...", "category": "learning|gotcha", "confidence": 0.0-1.0}  ]\n'
+            f'[  {{"content": "...", "category": "{categories_format}", '
+            '"confidence": 0.0-1.0}}  ]\n'
             "Valid JSON only, no markdown."
         )
 
