@@ -1,39 +1,14 @@
-import json
 from pathlib import Path
 
-from oghma.parsers.base import BaseParser, Message
+from oghma.parsers.base import JsonlParser
 
 
-class ClaudeCodeParser(BaseParser):
+class ClaudeCodeParser(JsonlParser):
     def can_parse(self, file_path: Path) -> bool:
         if not file_path.name.endswith(".jsonl"):
             return False
         path_str = str(file_path)
         return ".claude/projects/-Users-" in path_str
-
-    def parse(self, file_path: Path) -> list[Message]:
-        messages: list[Message] = []
-
-        try:
-            with open(file_path, encoding="utf-8") as f:
-                for _line_num, line in enumerate(f, 1):
-                    line = line.strip()
-                    if not line:
-                        continue
-
-                    try:
-                        data = json.loads(line)
-                        role = self._extract_role(data)
-                        content = self._extract_content(data)
-
-                        if role and content:
-                            messages.append(Message(role=role, content=content[:3000]))
-                    except (json.JSONDecodeError, KeyError, TypeError):
-                        continue
-        except (OSError, UnicodeDecodeError):
-            return []
-
-        return messages
 
     def _extract_role(self, data: dict) -> str | None:
         msg_type = data.get("type")

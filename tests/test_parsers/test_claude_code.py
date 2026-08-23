@@ -115,6 +115,19 @@ def test_returns_empty_list_for_nonexistent_file(parser):
     assert messages == []
 
 
+def test_returns_empty_list_for_invalid_utf8(parser, fixture_dir):
+    """Non-UTF-8 bytes yield an empty result, discarding earlier lines."""
+    file_path = fixture_dir / ".claude" / "projects" / "-Users-terry" / "test.jsonl"
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+
+    file_path.write_bytes(
+        b'{"type": "user", "message": {"content": "Valid"}}\n'
+        b'{"type": "user", "message": {"content": "\xff\xfe"}}\n'
+    )
+
+    assert parser.parse(file_path) == []
+
+
 def test_truncates_long_content(parser, fixture_dir):
     file_path = fixture_dir / ".claude" / "projects" / "-Users-terry" / "test.jsonl"
     file_path.parent.mkdir(parents=True, exist_ok=True)
